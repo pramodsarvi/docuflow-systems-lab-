@@ -57,3 +57,26 @@ spec:
           annotations:
             summary: "GPU {{ $labels.gpu }} memory above 97%"
             description: Time-sliced model servers share GPU memory without isolation; one more process may fail with CUDA OOM.
+        - alert: DocuflowFallbackPages
+          expr: sum(max by (dataset) (docuflow_fallback_pages)) > 0
+          for: 30m
+          labels: {severity: info}
+          annotations:
+            summary: "{{ $value }} pages were indexed from dataset text instead of a vision read"
+            description: Re-read them with `POST /workloads/reread-fallbacks` once the model servers are healthy.
+        - alert: DocuflowAutoscalerAtMax
+          expr: |
+            kube_horizontalpodautoscaler_status_desired_replicas{namespace="docuflow"}
+              >= on (horizontalpodautoscaler) kube_horizontalpodautoscaler_spec_max_replicas{namespace="docuflow"}
+          for: 30m
+          labels: {severity: info}
+          annotations:
+            summary: "{{ $labels.horizontalpodautoscaler }} has wanted its maximum replicas for 30 minutes"
+            description: Demand exceeds maxReplicaCount. Raise it only if the downstream tier (model servers, GPU) has capacity.
+        - alert: DocuflowKedaScalerErrors
+          expr: sum by (scaledObject) (increase(keda_scaler_detail_errors_total{exported_namespace="docuflow"}[10m])) > 0
+          for: 10m
+          labels: {severity: warning}
+          annotations:
+            summary: "KEDA cannot read the trigger for {{ $labels.scaledObject }}"
+            description: Scaling is frozen at the current count. Check `kubectl -n keda logs deploy/keda-operator` (DNS, auth, endpoint).

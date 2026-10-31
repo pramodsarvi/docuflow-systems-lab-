@@ -88,7 +88,7 @@ def metrics():
 
     def gauge(name, help_, rows):
         out.append(f"# HELP {name} {help_}\n# TYPE {name} gauge")
-        out.extend(f"{name}{{{labels}}} {v}" for labels, v in rows)
+        out.extend(f"{name}{{{labels}}} {v}" if labels else f"{name} {v}" for labels, v in rows)
 
     with db.pool().connection() as c:
         jobs_ = c.execute("SELECT lane, status, count(*) n FROM jobs GROUP BY 1,2").fetchall()
@@ -101,6 +101,28 @@ def metrics():
     gauge("docuflow_queries_in_flight", "Interactive queries currently running", [("", jobs.queries_in_flight())])
     gauge("docuflow_queries_total", "Answered queries", [(f'during_ingest="{r["during_ingest"]}"', r["n"]) for r in q])
     gauge("docuflow_query_seconds_sum", "Total query latency", [(f'during_ingest="{r["during_ingest"]}"', round(r["total"], 2)) for r in q])
+    with db.pool().connection() as c:
+        lat = c.execute("""SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY seconds) p50,
+                                  percentile_cont(0.95) WITHIN GROUP (ORDER BY seconds) p95,
+                                  percentile_cont(0.99) WITHIN GROUP (ORDER BY seconds) p99, count(*) n
+                           FROM queries WHERE created_at > now() - interval '5 minutes'""").fetchone()
+        reads = c.execute("""SELECT d.dataset, avg(e.seconds) s, count(*) n FROM extractions e JOIN documents d ON d.id=e.doc_id
+                             WHERE d.indexed_at > now() - interval '15 minutes' AND NOT e.used_fallback GROUP BY 1""").fetchall()
+        fb = c.execute("""SELECT d.dataset, count(*) n FROM extractions e JOIN documents d ON d.id=e.doc_id
+                          WHERE e.used_fallback GROUP BY 1""").fetchall()
+        deferrals = c.execute("SELECT lane, coalesce(sum(outages),0) n FROM jobs GROUP BY 1").fetchall()
+    gauge("docuflow_query_latency_seconds", "Query latency over the last 5 minutes",
+          [(f'quantile="{k}"', round(lat[f"p{k[2:]}"] or 0, 2)) for k in ("0.50", "0.95", "0.99")] if lat["n"] else [])
+    gauge("docuflow_queries_last_5m", "Queries answered in the last 5 minutes", [("", lat["n"])])
+    gauge("docuflow_read_seconds_avg", "Mean vision-model read time per page over the last 15 minutes",
+          [(f'dataset="{r["dataset"]}"', round(r["s"] or 0, 2)) for r in reads])
+    gauge("docuflow_fallback_pages", "Pages indexed from the dataset's own transcription instead of a vision-model read",
+          [(f'dataset="{r["dataset"]}"', r["n"]) for r in fb])
+    gauge("docuflow_outage_deferrals", "Jobs deferred because a model server was unavailable (cumulative)",
+          [(f'lane="{r["lane"]}"', r["n"]) for r in deferrals])
+    gauge("docuflow_queries_paused", "1 while queries are paused (ingest-priority mode)", [("", int(bool(db.control_get("queries_paused", False))))])
+    agent = "gpu" if "model-llm" in (config.ENDPOINTS["llm"][0] or "") else ("mac" if "mac-llm" in (config.ENDPOINTS["llm"][0] or "") else "other")
+    gauge("docuflow_info", "Which models serve each role", [(f'agent_backend="{agent}",llm_model="{config.LLM_MODEL}",vlm_model="{config.VLM_MODEL}"', 1)])
     return Response("\n".join(out) + "\n", media_type="text/plain; version=0.0.4")
 
 

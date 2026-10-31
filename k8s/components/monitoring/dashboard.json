@@ -3,15 +3,17 @@
  "title": "docuflow",
  "tags": [
   "docuflow",
-  "keda"
+  "keda",
+  "vllm"
  ],
  "timezone": "browser",
  "schemaVersion": 39,
  "refresh": "10s",
  "time": {
-  "from": "now-30m",
+  "from": "now-1h",
   "to": "now"
  },
+ "graphTooltip": 1,
  "templating": {
   "list": [
    {
@@ -24,12 +26,26 @@
  },
  "panels": [
   {
-   "type": "stat",
-   "title": "Pages indexed",
+   "type": "row",
+   "title": "Overview",
+   "collapsed": false,
    "gridPos": {
     "x": 0,
     "y": 0,
-    "w": 6,
+    "w": 24,
+    "h": 1
+   },
+   "panels": [],
+   "id": 1
+  },
+  {
+   "type": "stat",
+   "title": "Pages indexed",
+   "description": "Pages searchable now (all datasets)",
+   "gridPos": {
+    "x": 0,
+    "y": 1,
+    "w": 4,
     "h": 4
    },
    "datasource": {
@@ -43,7 +59,8 @@
      "datasource": {
       "type": "prometheus",
       "uid": "${datasource}"
-     }
+     },
+     "refId": "A"
     }
    ],
    "fieldConfig": {
@@ -57,7 +74,8 @@
         "value": null
        }
       ]
-     }
+     },
+     "mappings": []
     },
     "overrides": []
    },
@@ -65,19 +83,24 @@
     "reduceOptions": {
      "calcs": [
       "lastNotNull"
-     ]
+     ],
+     "fields": ""
     },
-    "colorMode": "background"
+    "colorMode": "background",
+    "graphMode": "area",
+    "textMode": "value",
+    "justifyMode": "center"
    },
-   "id": 1
+   "id": 2
   },
   {
    "type": "stat",
-   "title": "Jobs queued",
+   "title": "Pages waiting to be read",
+   "description": "Fetched pages not yet indexed",
    "gridPos": {
-    "x": 6,
-    "y": 0,
-    "w": 6,
+    "x": 4,
+    "y": 1,
+    "w": 4,
     "h": 4
    },
    "datasource": {
@@ -86,12 +109,13 @@
    },
    "targets": [
     {
-     "expr": "sum(max by (lane) (docuflow_jobs{status=\"queued\"}))",
+     "expr": "sum(max by (dataset, status) (docuflow_documents{status!=\"indexed\"}))",
      "legendFormat": "",
      "datasource": {
       "type": "prometheus",
       "uid": "${datasource}"
-     }
+     },
+     "refId": "A"
     }
    ],
    "fieldConfig": {
@@ -101,11 +125,12 @@
       "mode": "absolute",
       "steps": [
        {
-        "color": "green",
+        "color": "blue",
         "value": null
        }
       ]
-     }
+     },
+     "mappings": []
     },
     "overrides": []
    },
@@ -113,19 +138,136 @@
     "reduceOptions": {
      "calcs": [
       "lastNotNull"
-     ]
+     ],
+     "fields": ""
     },
-    "colorMode": "background"
+    "colorMode": "background",
+    "graphMode": "area",
+    "textMode": "value",
+    "justifyMode": "center"
    },
-   "id": 2
+   "id": 3
+  },
+  {
+   "type": "stat",
+   "title": "Ingest rate",
+   "description": "Pages indexed per minute (10 min average)",
+   "gridPos": {
+    "x": 8,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "targets": [
+    {
+     "expr": "sum(rate(docuflow_worker_jobs_total{stage=\"embed\",result=\"ok\"}[10m])) * 60",
+     "legendFormat": "",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "suffix: pages/min",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "blue",
+        "value": null
+       }
+      ]
+     },
+     "mappings": [],
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": ""
+    },
+    "colorMode": "background",
+    "graphMode": "area",
+    "textMode": "value",
+    "justifyMode": "center"
+   },
+   "id": 4
+  },
+  {
+   "type": "stat",
+   "title": "ETA for the backlog",
+   "description": "Pages waiting / current ingest rate",
+   "gridPos": {
+    "x": 12,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "targets": [
+    {
+     "expr": "(sum(max by (dataset, status) (docuflow_documents{status!=\"indexed\"}))) / (sum(rate(docuflow_worker_jobs_total{stage=\"embed\",result=\"ok\"}[10m])) * 60)",
+     "legendFormat": "",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "m",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "blue",
+        "value": null
+       }
+      ]
+     },
+     "mappings": [],
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": ""
+    },
+    "colorMode": "background",
+    "graphMode": "area",
+    "textMode": "value",
+    "justifyMode": "center"
+   },
+   "id": 5
   },
   {
    "type": "stat",
    "title": "Dead jobs",
+   "description": "Jobs that used all retries: GET /jobs?status=dead",
    "gridPos": {
-    "x": 12,
-    "y": 0,
-    "w": 6,
+    "x": 16,
+    "y": 1,
+    "w": 4,
     "h": 4
    },
    "datasource": {
@@ -139,7 +281,8 @@
      "datasource": {
       "type": "prometheus",
       "uid": "${datasource}"
-     }
+     },
+     "refId": "A"
     }
    ],
    "fieldConfig": {
@@ -157,7 +300,8 @@
         "value": 1
        }
       ]
-     }
+     },
+     "mappings": []
     },
     "overrides": []
    },
@@ -165,19 +309,24 @@
     "reduceOptions": {
      "calcs": [
       "lastNotNull"
-     ]
+     ],
+     "fields": ""
     },
-    "colorMode": "background"
+    "colorMode": "background",
+    "graphMode": "area",
+    "textMode": "value",
+    "justifyMode": "center"
    },
-   "id": 3
+   "id": 6
   },
   {
    "type": "stat",
-   "title": "Queries in flight",
+   "title": "Fallback pages",
+   "description": "Indexed from dataset text, not a vision read: POST /workloads/reread-fallbacks",
    "gridPos": {
-    "x": 18,
-    "y": 0,
-    "w": 6,
+    "x": 20,
+    "y": 1,
+    "w": 4,
     "h": 4
    },
    "datasource": {
@@ -186,12 +335,72 @@
    },
    "targets": [
     {
-     "expr": "max(docuflow_queries_in_flight)",
+     "expr": "sum(max by (dataset) (docuflow_fallback_pages)) or vector(0)",
      "legendFormat": "",
      "datasource": {
       "type": "prometheus",
       "uid": "${datasource}"
-     }
+     },
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 1
+       }
+      ]
+     },
+     "mappings": []
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": ""
+    },
+    "colorMode": "background",
+    "graphMode": "area",
+    "textMode": "value",
+    "justifyMode": "center"
+   },
+   "id": 7
+  },
+  {
+   "type": "stat",
+   "title": "Queries",
+   "description": "",
+   "gridPos": {
+    "x": 0,
+    "y": 5,
+    "w": 4,
+    "h": 4
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "targets": [
+    {
+     "expr": "max(docuflow_queries_paused)",
+     "legendFormat": "",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "refId": "A"
     }
    ],
    "fieldConfig": {
@@ -205,7 +414,22 @@
         "value": null
        }
       ]
-     }
+     },
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "0": {
+         "text": "open",
+         "color": "green"
+        },
+        "1": {
+         "text": "paused (ingest mode)",
+         "color": "orange"
+        }
+       }
+      }
+     ]
     },
     "overrides": []
    },
@@ -213,20 +437,25 @@
     "reduceOptions": {
      "calcs": [
       "lastNotNull"
-     ]
+     ],
+     "fields": ""
     },
-    "colorMode": "background"
+    "colorMode": "background",
+    "graphMode": "area",
+    "textMode": "value",
+    "justifyMode": "center"
    },
-   "id": 4
+   "id": 8
   },
   {
-   "type": "timeseries",
-   "title": "Queue depth by lane (queued)",
+   "type": "stat",
+   "title": "Agent model on",
+   "description": "gpu = vLLM model-llm, mac = Ollama via tunnel",
    "gridPos": {
-    "x": 0,
-    "y": 4,
-    "w": 12,
-    "h": 8
+    "x": 4,
+    "y": 5,
+    "w": 4,
+    "h": 4
    },
    "datasource": {
     "type": "prometheus",
@@ -234,45 +463,54 @@
    },
    "targets": [
     {
-     "expr": "max by (lane) (docuflow_jobs{status=\"queued\"})",
-     "legendFormat": "{{lane}}",
+     "expr": "max by (agent_backend) (docuflow_info)",
+     "legendFormat": "{{agent_backend}}",
      "datasource": {
       "type": "prometheus",
       "uid": "${datasource}"
-     }
+     },
+     "refId": "A"
     }
    ],
    "fieldConfig": {
     "defaults": {
      "unit": "short",
-     "custom": {
-      "fillOpacity": 15,
-      "stacking": {
-       "mode": "none"
-      }
-     }
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     },
+     "mappings": []
     },
     "overrides": []
    },
    "options": {
-    "legend": {
-     "displayMode": "list",
-     "placement": "bottom"
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": ""
     },
-    "tooltip": {
-     "mode": "multi"
-    }
+    "colorMode": "none",
+    "graphMode": "area",
+    "textMode": "name",
+    "justifyMode": "center"
    },
-   "id": 5
+   "id": 9
   },
   {
-   "type": "timeseries",
-   "title": "Replicas (KEDA)",
+   "type": "stat",
+   "title": "Query p95 (5 min)",
+   "description": "",
    "gridPos": {
-    "x": 12,
-    "y": 4,
-    "w": 12,
-    "h": 8
+    "x": 8,
+    "y": 5,
+    "w": 4,
+    "h": 4
    },
    "datasource": {
     "type": "prometheus",
@@ -280,152 +518,249 @@
    },
    "targets": [
     {
-     "expr": "kube_deployment_status_replicas{namespace=\"docuflow\", deployment=~\"worker-.*|api\"}",
-     "legendFormat": "{{deployment}}",
+     "expr": "max(docuflow_query_latency_seconds{quantile=\"0.95\"})",
+     "legendFormat": "",
      "datasource": {
       "type": "prometheus",
       "uid": "${datasource}"
-     }
-    },
-    {
-     "expr": "sum(kube_pod_status_phase{namespace=\"docuflow\", pod=~\"worker-.*\", phase=\"Pending\"})",
-     "legendFormat": "workers pending",
-     "datasource": {
-      "type": "prometheus",
-      "uid": "${datasource}"
-     }
-    }
-   ],
-   "fieldConfig": {
-    "defaults": {
-     "unit": "short",
-     "custom": {
-      "fillOpacity": 15,
-      "stacking": {
-       "mode": "none"
-      }
-     }
-    },
-    "overrides": []
-   },
-   "options": {
-    "legend": {
-     "displayMode": "list",
-     "placement": "bottom"
-    },
-    "tooltip": {
-     "mode": "multi"
-    }
-   },
-   "id": 6
-  },
-  {
-   "type": "timeseries",
-   "title": "Throughput (jobs/min)",
-   "gridPos": {
-    "x": 0,
-    "y": 12,
-    "w": 12,
-    "h": 8
-   },
-   "datasource": {
-    "type": "prometheus",
-    "uid": "${datasource}"
-   },
-   "targets": [
-    {
-     "expr": "sum by (stage) (rate(docuflow_worker_jobs_total{result=\"ok\"}[2m])) * 60",
-     "legendFormat": "{{stage}} ok",
-     "datasource": {
-      "type": "prometheus",
-      "uid": "${datasource}"
-     }
-    },
-    {
-     "expr": "sum by (stage) (rate(docuflow_worker_jobs_total{result!=\"ok\"}[2m])) * 60",
-     "legendFormat": "{{stage}} failed",
-     "datasource": {
-      "type": "prometheus",
-      "uid": "${datasource}"
-     }
-    }
-   ],
-   "fieldConfig": {
-    "defaults": {
-     "unit": "short",
-     "custom": {
-      "fillOpacity": 15,
-      "stacking": {
-       "mode": "none"
-      }
-     }
-    },
-    "overrides": []
-   },
-   "options": {
-    "legend": {
-     "displayMode": "list",
-     "placement": "bottom"
-    },
-    "tooltip": {
-     "mode": "multi"
-    }
-   },
-   "id": 7
-  },
-  {
-   "type": "timeseries",
-   "title": "Mean job duration",
-   "gridPos": {
-    "x": 12,
-    "y": 12,
-    "w": 12,
-    "h": 8
-   },
-   "datasource": {
-    "type": "prometheus",
-    "uid": "${datasource}"
-   },
-   "targets": [
-    {
-     "expr": "sum by (stage) (rate(docuflow_worker_job_seconds_total[5m])) / sum by (stage) (rate(docuflow_worker_jobs_total[5m]))",
-     "legendFormat": "{{stage}}",
-     "datasource": {
-      "type": "prometheus",
-      "uid": "${datasource}"
-     }
+     },
+     "refId": "A"
     }
    ],
    "fieldConfig": {
     "defaults": {
      "unit": "s",
-     "custom": {
-      "fillOpacity": 15,
-      "stacking": {
-       "mode": "none"
-      }
-     }
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 15
+       },
+       {
+        "color": "red",
+        "value": 30
+       }
+      ]
+     },
+     "mappings": [],
+     "decimals": 1
     },
     "overrides": []
    },
    "options": {
-    "legend": {
-     "displayMode": "list",
-     "placement": "bottom"
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": ""
     },
-    "tooltip": {
-     "mode": "multi"
-    }
+    "colorMode": "background",
+    "graphMode": "area",
+    "textMode": "value",
+    "justifyMode": "center"
    },
-   "id": 8
+   "id": 10
   },
   {
-   "type": "timeseries",
-   "title": "Documents by status",
+   "type": "stat",
+   "title": "Queries in flight",
+   "description": "",
+   "gridPos": {
+    "x": 12,
+    "y": 5,
+    "w": 4,
+    "h": 4
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "targets": [
+    {
+     "expr": "max(docuflow_queries_in_flight)",
+     "legendFormat": "",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "blue",
+        "value": null
+       }
+      ]
+     },
+     "mappings": []
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": ""
+    },
+    "colorMode": "background",
+    "graphMode": "area",
+    "textMode": "value",
+    "justifyMode": "center"
+   },
+   "id": 11
+  },
+  {
+   "type": "stat",
+   "title": "GPU utilisation",
+   "description": "",
+   "gridPos": {
+    "x": 16,
+    "y": 5,
+    "w": 4,
+    "h": 4
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "targets": [
+    {
+     "expr": "avg(DCGM_FI_DEV_GPU_UTIL)",
+     "legendFormat": "",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "blue",
+        "value": null
+       }
+      ]
+     },
+     "mappings": []
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": ""
+    },
+    "colorMode": "background",
+    "graphMode": "area",
+    "textMode": "value",
+    "justifyMode": "center"
+   },
+   "id": 12
+  },
+  {
+   "type": "stat",
+   "title": "GPU memory used",
+   "description": "",
+   "gridPos": {
+    "x": 20,
+    "y": 5,
+    "w": 4,
+    "h": 4
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "targets": [
+    {
+     "expr": "sum(DCGM_FI_DEV_FB_USED) / (sum(DCGM_FI_DEV_FB_USED) + sum(DCGM_FI_DEV_FB_FREE)) * 100",
+     "legendFormat": "",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 90
+       },
+       {
+        "color": "red",
+        "value": 97
+       }
+      ]
+     },
+     "mappings": [],
+     "decimals": 0
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": ""
+    },
+    "colorMode": "background",
+    "graphMode": "area",
+    "textMode": "value",
+    "justifyMode": "center"
+   },
+   "id": 13
+  },
+  {
+   "type": "row",
+   "title": "Ingest pipeline",
+   "collapsed": false,
    "gridPos": {
     "x": 0,
-    "y": 20,
-    "w": 12,
+    "y": 9,
+    "w": 24,
+    "h": 1
+   },
+   "panels": [],
+   "id": 14
+  },
+  {
+   "type": "bargauge",
+   "title": "Progress per dataset (indexed / fetched)",
+   "description": "Share of each dataset's fetched pages that are searchable",
+   "gridPos": {
+    "x": 0,
+    "y": 10,
+    "w": 8,
     "h": 8
    },
    "datasource": {
@@ -434,19 +769,78 @@
    },
    "targets": [
     {
-     "expr": "sum by (status) (max by (dataset, status) (docuflow_documents))",
-     "legendFormat": "{{status}}",
+     "expr": "max by (dataset) (docuflow_documents{status=\"indexed\"}) / sum by (dataset) (max by (dataset, status) (docuflow_documents)) * 100",
+     "legendFormat": "{{dataset}}",
      "datasource": {
       "type": "prometheus",
       "uid": "${datasource}"
+     },
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "min": 0,
+     "max": 100,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "blue",
+        "value": null
+       }
+      ]
      }
+    },
+    "overrides": []
+   },
+   "options": {
+    "displayMode": "gradient",
+    "orientation": "horizontal",
+    "showUnfilled": true,
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": ""
+    },
+    "namePlacement": "left"
+   },
+   "id": 15
+  },
+  {
+   "type": "timeseries",
+   "title": "Pages indexed per minute, by dataset",
+   "description": "10 min derivative of indexed pages",
+   "gridPos": {
+    "x": 8,
+    "y": 10,
+    "w": 8,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "targets": [
+    {
+     "expr": "max by (dataset) (deriv(docuflow_documents{status=\"indexed\"}[10m])) * 60 > 0",
+     "legendFormat": "{{dataset}}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "refId": "A"
     }
    ],
    "fieldConfig": {
     "defaults": {
      "unit": "short",
      "custom": {
-      "fillOpacity": 15,
+      "fillOpacity": 12,
+      "lineWidth": 2,
+      "showPoints": "never",
       "stacking": {
        "mode": "normal"
       }
@@ -456,22 +850,263 @@
    },
    "options": {
     "legend": {
-     "displayMode": "list",
-     "placement": "bottom"
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
     },
     "tooltip": {
-     "mode": "multi"
+     "mode": "multi",
+     "sort": "desc"
     }
    },
-   "id": 9
+   "id": 16
   },
   {
    "type": "timeseries",
-   "title": "Oldest queued job age",
+   "title": "Vision read time per page, by dataset",
+   "description": "Mean seconds per page over 15 min; dense scans take ~10x a handwriting line",
    "gridPos": {
-    "x": 12,
-    "y": 20,
-    "w": 12,
+    "x": 16,
+    "y": 10,
+    "w": 8,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "targets": [
+    {
+     "expr": "max by (dataset) (docuflow_read_seconds_avg)",
+     "legendFormat": "{{dataset}}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "custom": {
+      "fillOpacity": 12,
+      "lineWidth": 2,
+      "showPoints": "never",
+      "stacking": {
+       "mode": "none"
+      }
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 17
+  },
+  {
+   "type": "timeseries",
+   "title": "RabbitMQ work tokens (KEDA input)",
+   "description": "Lane queues drive worker scaling; .delay queues hold retry/outage backoffs",
+   "gridPos": {
+    "x": 0,
+    "y": 18,
+    "w": 8,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "targets": [
+    {
+     "expr": "sum by (queue) (rabbitmq_queue_messages_ready{queue=~\"docuflow.*\"})",
+     "legendFormat": "{{queue}} ready",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "refId": "A"
+    },
+    {
+     "expr": "sum by (queue) (rabbitmq_queue_messages_unacked{queue=~\"docuflow.*\"})",
+     "legendFormat": "{{queue}} unacked",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "refId": "B"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "fillOpacity": 12,
+      "lineWidth": 2,
+      "showPoints": "never",
+      "stacking": {
+       "mode": "none"
+      }
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 18
+  },
+  {
+   "type": "timeseries",
+   "title": "Job outcomes per minute",
+   "description": "ok, retry (page problem), deferred (model server unavailable), dead",
+   "gridPos": {
+    "x": 8,
+    "y": 18,
+    "w": 8,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "targets": [
+    {
+     "expr": "sum by (result) (rate(docuflow_worker_jobs_total[2m])) * 60",
+     "legendFormat": "{{result}}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "fillOpacity": 12,
+      "lineWidth": 2,
+      "showPoints": "never",
+      "stacking": {
+       "mode": "normal"
+      }
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "ok"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "green"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "retry"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "orange"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "deferred"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "yellow"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "dead"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "red"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 19
+  },
+  {
+   "type": "timeseries",
+   "title": "Oldest waiting job, and jobs running",
+   "description": "Age of the oldest queued job per lane (left axis)",
+   "gridPos": {
+    "x": 16,
+    "y": 18,
+    "w": 8,
     "h": 8
    },
    "datasource": {
@@ -485,38 +1120,86 @@
      "datasource": {
       "type": "prometheus",
       "uid": "${datasource}"
-     }
+     },
+     "refId": "A"
+    },
+    {
+     "expr": "max by (lane) (docuflow_jobs{status=\"running\"})",
+     "legendFormat": "{{lane}} running",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "refId": "B"
     }
    ],
    "fieldConfig": {
     "defaults": {
      "unit": "s",
      "custom": {
-      "fillOpacity": 15,
+      "fillOpacity": 12,
+      "lineWidth": 2,
+      "showPoints": "never",
       "stacking": {
        "mode": "none"
       }
      }
     },
-    "overrides": []
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byRegexp",
+       "options": ".*running"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "short"
+       },
+       {
+        "id": "custom.axisPlacement",
+        "value": "right"
+       }
+      ]
+     }
+    ]
    },
    "options": {
     "legend": {
-     "displayMode": "list",
-     "placement": "bottom"
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
     },
     "tooltip": {
-     "mode": "multi"
+     "mode": "multi",
+     "sort": "desc"
     }
    },
-   "id": 10
+   "id": 20
+  },
+  {
+   "type": "row",
+   "title": "Autoscaling (KEDA -> HPA)",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 26,
+    "w": 24,
+    "h": 1
+   },
+   "panels": [],
+   "id": 21
   },
   {
    "type": "timeseries",
-   "title": "Running jobs by lane",
+   "title": "KEDA trigger values (what each scaler reads)",
+   "description": "RabbitMQ tokens, running jobs, queries in flight, vLLM load: the numbers the HPAs divide by their targets",
    "gridPos": {
     "x": 0,
-    "y": 28,
+    "y": 27,
     "w": 12,
     "h": 8
    },
@@ -526,19 +1209,22 @@
    },
    "targets": [
     {
-     "expr": "max by (lane) (docuflow_jobs{status=\"running\"})",
-     "legendFormat": "{{lane}}",
+     "expr": "max by (scaledObject, scaler) (keda_scaler_metrics_value{exported_namespace=\"docuflow\"})",
+     "legendFormat": "{{scaledObject}} / {{scaler}}",
      "datasource": {
       "type": "prometheus",
       "uid": "${datasource}"
-     }
+     },
+     "refId": "A"
     }
    ],
    "fieldConfig": {
     "defaults": {
      "unit": "short",
      "custom": {
-      "fillOpacity": 15,
+      "fillOpacity": 12,
+      "lineWidth": 2,
+      "showPoints": "never",
       "stacking": {
        "mode": "none"
       }
@@ -548,21 +1234,27 @@
    },
    "options": {
     "legend": {
-     "displayMode": "list",
-     "placement": "bottom"
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
     },
     "tooltip": {
-     "mode": "multi"
+     "mode": "multi",
+     "sort": "desc"
     }
    },
-   "id": 11
+   "id": 22
   },
   {
    "type": "timeseries",
-   "title": "Mean query latency",
+   "title": "Replicas per autoscaled Deployment",
+   "description": "Current replicas, as set by each KEDA-created HPA",
    "gridPos": {
     "x": 12,
-    "y": 28,
+    "y": 27,
     "w": 12,
     "h": 8
    },
@@ -572,19 +1264,22 @@
    },
    "targets": [
     {
-     "expr": "max by (during_ingest) (docuflow_query_seconds_sum) / max by (during_ingest) (docuflow_queries_total)",
-     "legendFormat": "during_ingest={{during_ingest}}",
+     "expr": "label_replace(kube_horizontalpodautoscaler_status_current_replicas{namespace=\"docuflow\"}, \"target\", \"$1\", \"horizontalpodautoscaler\", \"keda-hpa-(.*)\")",
+     "legendFormat": "{{target}}",
      "datasource": {
       "type": "prometheus",
       "uid": "${datasource}"
-     }
+     },
+     "refId": "A"
     }
    ],
    "fieldConfig": {
     "defaults": {
-     "unit": "s",
+     "unit": "short",
      "custom": {
-      "fillOpacity": 15,
+      "fillOpacity": 12,
+      "lineWidth": 2,
+      "showPoints": "never",
       "stacking": {
        "mode": "none"
       }
@@ -594,35 +1289,215 @@
    },
    "options": {
     "legend": {
-     "displayMode": "list",
-     "placement": "bottom"
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
     },
     "tooltip": {
-     "mode": "multi"
+     "mode": "multi",
+     "sort": "desc"
     }
    },
-   "id": 12
+   "id": 23
   },
   {
-   "type": "row",
-   "title": "Model servers (vLLM) and GPU",
+   "type": "bargauge",
+   "title": "Desired replicas as % of max (100% = capped)",
+   "description": "At 100% KEDA wants more than maxReplicaCount allows: raise the max or the downstream capacity",
    "gridPos": {
     "x": 0,
-    "y": 36,
-    "w": 24,
-    "h": 1
+    "y": 35,
+    "w": 8,
+    "h": 8
    },
-   "collapsed": false,
-   "panels": [],
-   "id": 13
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "targets": [
+    {
+     "expr": "label_replace(kube_horizontalpodautoscaler_status_desired_replicas{namespace=\"docuflow\"}, \"target\", \"$1\", \"horizontalpodautoscaler\", \"keda-hpa-(.*)\") / on (horizontalpodautoscaler) kube_horizontalpodautoscaler_spec_max_replicas{namespace=\"docuflow\"} * 100",
+     "legendFormat": "{{target}}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "min": 0,
+     "max": 100,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "blue",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 90
+       },
+       {
+        "color": "red",
+        "value": 100
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "displayMode": "gradient",
+    "orientation": "horizontal",
+    "showUnfilled": true,
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": ""
+    },
+    "namePlacement": "left"
+   },
+   "id": 24
   },
   {
    "type": "timeseries",
-   "title": "vLLM requests running / waiting",
+   "title": "Pending pods",
+   "description": "Pods KEDA asked for that cannot schedule (GPU slots, memory)",
+   "gridPos": {
+    "x": 8,
+    "y": 35,
+    "w": 8,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "targets": [
+    {
+     "expr": "sum by (app) (label_replace(kube_pod_status_phase{namespace=\"docuflow\",phase=\"Pending\"}, \"app\", \"$1\", \"pod\", \"(.+)-[a-z0-9]+-[a-z0-9]+\")) > 0",
+     "legendFormat": "{{app}}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "fillOpacity": 12,
+      "lineWidth": 2,
+      "showPoints": "never",
+      "stacking": {
+       "mode": "none"
+      }
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 25
+  },
+  {
+   "type": "timeseries",
+   "title": "KEDA scaler errors (10 min)",
+   "description": "Unreachable queue/DB/Prometheus, bad auth, DNS (use FQDNs: KEDA runs in its own namespace)",
+   "gridPos": {
+    "x": 16,
+    "y": 35,
+    "w": 8,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "targets": [
+    {
+     "expr": "sum by (scaledObject) (increase(keda_scaler_detail_errors_total{exported_namespace=\"docuflow\"}[10m])) or sum by (scaledObject) (increase(keda_scaled_object_errors_total{exported_namespace=\"docuflow\"}[10m]))",
+     "legendFormat": "{{scaledObject}}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "fillOpacity": 12,
+      "lineWidth": 2,
+      "showPoints": "never",
+      "stacking": {
+       "mode": "none"
+      }
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 26
+  },
+  {
+   "type": "row",
+   "title": "Model servers (vLLM)",
+   "collapsed": false,
    "gridPos": {
     "x": 0,
-    "y": 37,
-    "w": 12,
+    "y": 43,
+    "w": 24,
+    "h": 1
+   },
+   "panels": [],
+   "id": 27
+  },
+  {
+   "type": "timeseries",
+   "title": "Requests running / waiting per server",
+   "description": "running = in the batch (capped by --max-num-seqs); waiting = queued for a slot",
+   "gridPos": {
+    "x": 0,
+    "y": 44,
+    "w": 8,
     "h": 8
    },
    "datasource": {
@@ -636,7 +1511,8 @@
      "datasource": {
       "type": "prometheus",
       "uid": "${datasource}"
-     }
+     },
+     "refId": "A"
     },
     {
      "expr": "sum by (pod) (vllm:num_requests_waiting{namespace=\"docuflow\"})",
@@ -644,36 +1520,67 @@
      "datasource": {
       "type": "prometheus",
       "uid": "${datasource}"
-     }
+     },
+     "refId": "B"
     }
    ],
    "fieldConfig": {
     "defaults": {
      "unit": "short",
      "custom": {
-      "fillOpacity": 15
+      "fillOpacity": 12,
+      "lineWidth": 2,
+      "showPoints": "never",
+      "stacking": {
+       "mode": "none"
+      }
      }
     },
-    "overrides": []
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byRegexp",
+       "options": ".*waiting"
+      },
+      "properties": [
+       {
+        "id": "custom.lineStyle",
+        "value": {
+         "fill": "dash",
+         "dash": [
+          6,
+          4
+         ]
+        }
+       }
+      ]
+     }
+    ]
    },
    "options": {
     "legend": {
-     "displayMode": "list",
-     "placement": "bottom"
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
     },
     "tooltip": {
-     "mode": "multi"
+     "mode": "multi",
+     "sort": "desc"
     }
    },
-   "id": 14
+   "id": 28
   },
   {
    "type": "timeseries",
-   "title": "vLLM generation tokens/s",
+   "title": "KV-cache usage",
+   "description": "Near 100% the server preempts requests; raise --kv-cache-memory-bytes",
    "gridPos": {
-    "x": 12,
-    "y": 37,
-    "w": 12,
+    "x": 8,
+    "y": 44,
+    "w": 8,
     "h": 8
    },
    "datasource": {
@@ -682,41 +1589,118 @@
    },
    "targets": [
     {
-     "expr": "sum by (pod) (rate(vllm:generation_tokens_total{namespace=\"docuflow\"}[2m]))",
+     "expr": "max by (pod) (vllm:kv_cache_usage_perc{namespace=\"docuflow\"}) * 100",
      "legendFormat": "{{pod}}",
      "datasource": {
       "type": "prometheus",
       "uid": "${datasource}"
-     }
+     },
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "custom": {
+      "fillOpacity": 12,
+      "lineWidth": 2,
+      "showPoints": "never",
+      "stacking": {
+       "mode": "none"
+      }
+     },
+     "max": 100
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 29
+  },
+  {
+   "type": "timeseries",
+   "title": "Tokens per second",
+   "description": "",
+   "gridPos": {
+    "x": 16,
+    "y": 44,
+    "w": 8,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "targets": [
+    {
+     "expr": "sum by (model_name) (rate(vllm:generation_tokens_total{namespace=\"docuflow\"}[2m]))",
+     "legendFormat": "{{model_name}} generated",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "refId": "A"
+    },
+    {
+     "expr": "sum by (model_name) (rate(vllm:prompt_tokens_total{namespace=\"docuflow\"}[2m]))",
+     "legendFormat": "{{model_name}} prompt",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "refId": "B"
     }
    ],
    "fieldConfig": {
     "defaults": {
      "unit": "short",
      "custom": {
-      "fillOpacity": 15
+      "fillOpacity": 12,
+      "lineWidth": 2,
+      "showPoints": "never",
+      "stacking": {
+       "mode": "none"
+      }
      }
     },
     "overrides": []
    },
    "options": {
     "legend": {
-     "displayMode": "list",
-     "placement": "bottom"
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
     },
     "tooltip": {
-     "mode": "multi"
+     "mode": "multi",
+     "sort": "desc"
     }
    },
-   "id": 15
+   "id": 30
   },
   {
    "type": "timeseries",
-   "title": "vLLM KV-cache usage",
+   "title": "Time to first token p95",
+   "description": "",
    "gridPos": {
     "x": 0,
-    "y": 45,
-    "w": 12,
+    "y": 52,
+    "w": 6,
     "h": 8
    },
    "datasource": {
@@ -725,41 +1709,418 @@
    },
    "targets": [
     {
-     "expr": "max by (pod) (vllm:kv_cache_usage_perc{namespace=\"docuflow\"} or vllm:gpu_cache_usage_perc{namespace=\"docuflow\"})",
-     "legendFormat": "{{pod}}",
+     "expr": "histogram_quantile(0.95, sum by (le, model_name) (rate(vllm:time_to_first_token_seconds_bucket{namespace=\"docuflow\"}[5m])))",
+     "legendFormat": "{{model_name}}",
      "datasource": {
       "type": "prometheus",
       "uid": "${datasource}"
-     }
+     },
+     "refId": "A"
     }
    ],
    "fieldConfig": {
     "defaults": {
-     "unit": "percentunit",
+     "unit": "s",
      "custom": {
-      "fillOpacity": 15
+      "fillOpacity": 12,
+      "lineWidth": 2,
+      "showPoints": "never",
+      "stacking": {
+       "mode": "none"
+      }
      }
     },
     "overrides": []
    },
    "options": {
     "legend": {
-     "displayMode": "list",
-     "placement": "bottom"
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
     },
     "tooltip": {
-     "mode": "multi"
+     "mode": "multi",
+     "sort": "desc"
     }
    },
-   "id": 16
+   "id": 31
   },
   {
    "type": "timeseries",
-   "title": "GPU utilisation / memory (DCGM)",
+   "title": "Queue time p95",
+   "description": "",
+   "gridPos": {
+    "x": 6,
+    "y": 52,
+    "w": 6,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "targets": [
+    {
+     "expr": "histogram_quantile(0.95, sum by (le, model_name) (rate(vllm:request_queue_time_seconds_bucket{namespace=\"docuflow\"}[5m])))",
+     "legendFormat": "{{model_name}}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "custom": {
+      "fillOpacity": 12,
+      "lineWidth": 2,
+      "showPoints": "never",
+      "stacking": {
+       "mode": "none"
+      }
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 32
+  },
+  {
+   "type": "timeseries",
+   "title": "End-to-end request latency p95",
+   "description": "",
    "gridPos": {
     "x": 12,
-    "y": 45,
-    "w": 12,
+    "y": 52,
+    "w": 6,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "targets": [
+    {
+     "expr": "histogram_quantile(0.95, sum by (le, model_name) (rate(vllm:e2e_request_latency_seconds_bucket{namespace=\"docuflow\"}[5m])))",
+     "legendFormat": "{{model_name}}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "custom": {
+      "fillOpacity": 12,
+      "lineWidth": 2,
+      "showPoints": "never",
+      "stacking": {
+       "mode": "none"
+      }
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 33
+  },
+  {
+   "type": "timeseries",
+   "title": "Preemptions per minute",
+   "description": "Requests evicted for lack of KV cache; should be 0",
+   "gridPos": {
+    "x": 18,
+    "y": 52,
+    "w": 6,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "targets": [
+    {
+     "expr": "sum by (pod) (rate(vllm:num_preemptions_total{namespace=\"docuflow\"}[5m])) * 60",
+     "legendFormat": "{{pod}}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "fillOpacity": 12,
+      "lineWidth": 2,
+      "showPoints": "never",
+      "stacking": {
+       "mode": "none"
+      }
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 34
+  },
+  {
+   "type": "row",
+   "title": "Queries",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 60,
+    "w": 24,
+    "h": 1
+   },
+   "panels": [],
+   "id": 35
+  },
+  {
+   "type": "timeseries",
+   "title": "Query latency (5 min window)",
+   "description": "",
+   "gridPos": {
+    "x": 0,
+    "y": 61,
+    "w": 8,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "targets": [
+    {
+     "expr": "max by (quantile) (docuflow_query_latency_seconds)",
+     "legendFormat": "p{{quantile}}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "custom": {
+      "fillOpacity": 12,
+      "lineWidth": 2,
+      "showPoints": "never",
+      "stacking": {
+       "mode": "none"
+      }
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 36
+  },
+  {
+   "type": "timeseries",
+   "title": "Queries per minute",
+   "description": "",
+   "gridPos": {
+    "x": 8,
+    "y": 61,
+    "w": 8,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "targets": [
+    {
+     "expr": "max(docuflow_queries_last_5m) / 5",
+     "legendFormat": "queries/min",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "fillOpacity": 12,
+      "lineWidth": 2,
+      "showPoints": "never",
+      "stacking": {
+       "mode": "none"
+      }
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 37
+  },
+  {
+   "type": "timeseries",
+   "title": "In flight vs API replicas",
+   "description": "API scales on in-flight queries (4 per pod) and CPU",
+   "gridPos": {
+    "x": 16,
+    "y": 61,
+    "w": 8,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "targets": [
+    {
+     "expr": "max(docuflow_queries_in_flight)",
+     "legendFormat": "in flight",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "refId": "A"
+    },
+    {
+     "expr": "kube_deployment_status_replicas_available{namespace=\"docuflow\",deployment=\"api\"}",
+     "legendFormat": "api replicas",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "refId": "B"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "fillOpacity": 12,
+      "lineWidth": 2,
+      "showPoints": "never",
+      "stacking": {
+       "mode": "none"
+      }
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 38
+  },
+  {
+   "type": "row",
+   "title": "GPU & cluster",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 69,
+    "w": 24,
+    "h": 1
+   },
+   "panels": [],
+   "id": 39
+  },
+  {
+   "type": "timeseries",
+   "title": "GPU utilisation",
+   "description": "",
+   "gridPos": {
+    "x": 0,
+    "y": 70,
+    "w": 6,
     "h": 8
    },
    "datasource": {
@@ -769,48 +2130,53 @@
    "targets": [
     {
      "expr": "avg by (gpu) (DCGM_FI_DEV_GPU_UTIL)",
-     "legendFormat": "gpu{{gpu}} util %",
+     "legendFormat": "gpu {{gpu}} util",
      "datasource": {
       "type": "prometheus",
       "uid": "${datasource}"
-     }
-    },
-    {
-     "expr": "max by (gpu) (DCGM_FI_DEV_FB_USED / (DCGM_FI_DEV_FB_USED + DCGM_FI_DEV_FB_FREE)) * 100",
-     "legendFormat": "gpu{{gpu}} mem %",
-     "datasource": {
-      "type": "prometheus",
-      "uid": "${datasource}"
-     }
+     },
+     "refId": "A"
     }
    ],
    "fieldConfig": {
     "defaults": {
      "unit": "percent",
      "custom": {
-      "fillOpacity": 15
-     }
+      "fillOpacity": 12,
+      "lineWidth": 2,
+      "showPoints": "never",
+      "stacking": {
+       "mode": "none"
+      }
+     },
+     "max": 100
     },
     "overrides": []
    },
    "options": {
     "legend": {
-     "displayMode": "list",
-     "placement": "bottom"
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
     },
     "tooltip": {
-     "mode": "multi"
+     "mode": "multi",
+     "sort": "desc"
     }
    },
-   "id": 17
+   "id": 40
   },
   {
    "type": "timeseries",
-   "title": "RabbitMQ work tokens per lane queue (KEDA input)",
+   "title": "GPU memory",
+   "description": "",
    "gridPos": {
-    "x": 0,
-    "y": 53,
-    "w": 24,
+    "x": 6,
+    "y": 70,
+    "w": 6,
     "h": 8
    },
    "datasource": {
@@ -819,38 +2185,282 @@
    },
    "targets": [
     {
-     "expr": "sum by (queue) (rabbitmq_queue_messages_ready{queue=~\"docuflow\\\\..*\"})",
-     "legendFormat": "{{queue}} ready",
+     "expr": "sum by (gpu) (DCGM_FI_DEV_FB_USED) * 1024 * 1024",
+     "legendFormat": "used",
      "datasource": {
       "type": "prometheus",
       "uid": "${datasource}"
-     }
+     },
+     "refId": "A"
     },
     {
-     "expr": "sum by (queue) (rabbitmq_queue_messages_unacked{queue=~\"docuflow\\\\..*\"})",
-     "legendFormat": "{{queue}} unacked",
+     "expr": "(sum by (gpu) (DCGM_FI_DEV_FB_USED) + sum by (gpu) (DCGM_FI_DEV_FB_FREE)) * 1024 * 1024",
+     "legendFormat": "total",
      "datasource": {
       "type": "prometheus",
       "uid": "${datasource}"
-     }
+     },
+     "refId": "B"
     }
    ],
    "fieldConfig": {
     "defaults": {
-     "unit": "short",
+     "unit": "bytes",
      "custom": {
-      "fillOpacity": 15
+      "fillOpacity": 12,
+      "lineWidth": 2,
+      "showPoints": "never",
+      "stacking": {
+       "mode": "none"
+      }
      }
     },
     "overrides": []
    },
    "options": {
     "legend": {
-     "displayMode": "list",
-     "placement": "bottom"
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
     }
    },
-   "id": 18
+   "id": 41
+  },
+  {
+   "type": "timeseries",
+   "title": "GPU power and temperature",
+   "description": "",
+   "gridPos": {
+    "x": 12,
+    "y": 70,
+    "w": 6,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "targets": [
+    {
+     "expr": "avg by (gpu) (DCGM_FI_DEV_POWER_USAGE)",
+     "legendFormat": "power W",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "refId": "A"
+    },
+    {
+     "expr": "avg by (gpu) (DCGM_FI_DEV_GPU_TEMP)",
+     "legendFormat": "temp \u00b0C",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "refId": "B"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "fillOpacity": 12,
+      "lineWidth": 2,
+      "showPoints": "never",
+      "stacking": {
+       "mode": "none"
+      }
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 42
+  },
+  {
+   "type": "timeseries",
+   "title": "CPU by workload (cores)",
+   "description": "",
+   "gridPos": {
+    "x": 18,
+    "y": 70,
+    "w": 6,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "targets": [
+    {
+     "expr": "sum by (app) (label_replace(sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"docuflow\",container!=\"\"}[2m])), \"app\", \"$1\", \"pod\", \"(.+)-[a-z0-9]{8,10}-[a-z0-9]{5}|(.+)-[0-9]+\"))",
+     "legendFormat": "{{app}}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "fillOpacity": 12,
+      "lineWidth": 2,
+      "showPoints": "never",
+      "stacking": {
+       "mode": "normal"
+      }
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 43
+  },
+  {
+   "type": "timeseries",
+   "title": "Memory by workload",
+   "description": "",
+   "gridPos": {
+    "x": 0,
+    "y": 78,
+    "w": 12,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "targets": [
+    {
+     "expr": "sum by (app) (label_replace(sum by (pod) (container_memory_working_set_bytes{namespace=\"docuflow\",container!=\"\"}), \"app\", \"$1\", \"pod\", \"(.+)-[a-z0-9]{8,10}-[a-z0-9]{5}|(.+)-[0-9]+\"))",
+     "legendFormat": "{{app}}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "bytes",
+     "custom": {
+      "fillOpacity": 12,
+      "lineWidth": 2,
+      "showPoints": "never",
+      "stacking": {
+       "mode": "normal"
+      }
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 44
+  },
+  {
+   "type": "timeseries",
+   "title": "Running pods by workload",
+   "description": "",
+   "gridPos": {
+    "x": 12,
+    "y": 78,
+    "w": 12,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${datasource}"
+   },
+   "targets": [
+    {
+     "expr": "count by (app) (label_replace(kube_pod_status_phase{namespace=\"docuflow\",phase=\"Running\"} == 1, \"app\", \"$1\", \"pod\", \"(.+)-[a-z0-9]+-[a-z0-9]+|(.+)-[0-9]+\"))",
+     "legendFormat": "{{app}}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+     },
+     "refId": "A"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "fillOpacity": 12,
+      "lineWidth": 2,
+      "showPoints": "never",
+      "stacking": {
+       "mode": "normal"
+      }
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "id": 45
   }
  ]
 }

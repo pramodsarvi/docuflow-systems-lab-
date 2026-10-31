@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>docuflow Kubernetes Commands</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* Layout: one reading column (~68ch) with a sticky part index on wide screens; tables/code scroll in place. */
+  --paper: #f6f7f9;
+  --ink: #15181e;
+  --muted: #5b6372;
+  --rule: #dde1e8;
+  --panel: #ffffff;
+  --accent: #1f4fd1;
+  --accent-2: #e2892b;
+  --code-bg: #eef1f6;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #101318; --ink: #e7eaf0; --muted: #9aa3b2; --rule: #262c36; --panel: #161a21;
+    --accent: #8fb0ff; --accent-2: #f0a75a; --code-bg: #1a1f28; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #101318; --ink: #e7eaf0; --muted: #9aa3b2; --rule: #262c36; --panel: #161a21;
+  --accent: #8fb0ff; --accent-2: #f0a75a; --code-bg: #1a1f28; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--paper); color: var(--ink); font: 400 18px/1.62 var(--font-body); -webkit-font-smoothing: antialiased; }
+.wrap { display: grid; grid-template-columns: minmax(0, 1fr); gap: 48px; max-width: 1120px; margin: 0 auto; padding: 0 20px 96px; }
+@media (min-width: 1000px) { .wrap { grid-template-columns: 240px minmax(0, 1fr); } }
+header.hero { max-width: 1120px; margin: 0 auto; padding: 56px 20px 28px; border-bottom: 1px solid var(--rule); }
+.kicker { font: 600 13px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin: 0 0 18px; }
+h1 { font: 700 clamp(34px, 5.4vw, 60px)/1.04 var(--font-display); letter-spacing: -.02em; margin: 0 0 18px; max-width: 18ch; text-wrap: balance; }
+.lede { font-size: 21px; color: var(--muted); max-width: 60ch; margin: 0; font-style: italic; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+.meta span { font: 400 13px/1 var(--font-mono); border: 1px solid var(--rule); background: var(--panel); padding: 7px 10px; border-radius: 4px; color: var(--muted); }
+nav.toc { position: relative; }
+@media (min-width: 1000px) { nav.toc .inner { position: sticky; top: 24px; } }
+nav.toc .inner { padding-top: 36px; }
+nav.toc p { font: 600 12px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+nav.toc a { display: flex; gap: 10px; padding: 7px 8px; border-radius: 4px; color: var(--ink); text-decoration: none; font: 500 15px/1.3 var(--font-display); }
+nav.toc a:hover, nav.toc a:focus-visible { background: var(--panel); outline: none; box-shadow: inset 2px 0 0 var(--accent); }
+nav.toc .n { font: 600 13px/1.5 var(--font-mono); color: var(--accent); min-width: 1.2em; }
+main { min-width: 0; }
+main > section { max-width: 68ch; padding-top: 36px; }
+.partno { font: 600 13px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin: 28px 0 10px; }
+.parttitle { font: 700 clamp(28px, 3.6vw, 38px)/1.12 var(--font-display); letter-spacing: -.015em; margin: 0 0 18px; text-wrap: balance; }
+section + section { border-top: 1px solid var(--rule); margin-top: 40px; }
+h3 { font: 700 23px/1.25 var(--font-display); margin: 38px 0 10px; text-wrap: balance; }
+p, ul, ol { margin: 0 0 16px; }
+li { margin: 4px 0; }
+strong { font-weight: 600; }
+a { color: var(--accent); text-underline-offset: 3px; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+code { font: 400 .84em/1.4 var(--font-mono); background: var(--code-bg); padding: .1em .35em; border-radius: 3px; }
+.scroll { overflow-x: auto; margin: 0 0 20px; max-width: 100%; }
+.code { background: var(--code-bg); border-radius: 6px; border-left: 3px solid var(--accent); }
+pre { margin: 0; padding: 14px 16px; font: 400 13.5px/1.55 var(--font-mono); }
+pre code { background: none; padding: 0; font-size: inherit; }
+table { border-collapse: collapse; font: 400 15px/1.45 var(--font-body); min-width: 100%; font-variant-numeric: tabular-nums; }
+th { text-align: left; font: 600 13px/1.3 var(--font-mono); text-transform: uppercase; letter-spacing: .04em; color: var(--muted); border-bottom: 2px solid var(--ink); padding: 8px 12px 8px 0; white-space: nowrap; }
+td { border-bottom: 1px solid var(--rule); padding: 8px 12px 8px 0; vertical-align: top; }
+td code { white-space: nowrap; }
+figure.chart { margin: 8px 0 26px; padding: 16px 16px 8px; background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; }
+figure.chart svg { width: 100%; height: auto; display: block; }
+figcaption { font: 400 15px/1.45 var(--font-body); color: var(--muted); margin-bottom: 10px; }
+figcaption b { color: var(--ink); font-weight: 600; }
+.key { font: 600 12px/1 var(--font-mono); padding: 3px 7px; border-radius: 3px; color: var(--paper); }
+.key.a { background: var(--accent); } .key.b { background: var(--accent-2); }
+svg .grid { stroke: var(--rule); stroke-width: 1; }
+svg .axis { fill: var(--muted); font: 400 12px var(--font-mono); }
+svg .label { fill: var(--ink); font: 500 13px var(--font-display); }
+svg .val { fill: var(--ink); font: 600 12px var(--font-mono); }
+svg .bar-a { fill: var(--accent); } svg .bar-b { fill: var(--accent-2); } svg .bar-c { fill: var(--muted); opacity: .55; }
+footer { max-width: 68ch; color: var(--muted); font-size: 15px; margin-top: 56px; border-top: 1px solid var(--rule); padding-top: 18px; }
+@media (max-width: 420px) { body { font-size: 17px; } .lede { font-size: 18px; } }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+html { scroll-behavior: smooth; }
+
+main > section { padding-top: 28px; } section + section { margin-top: 28px; }
+h4 { font: 700 19px/1.3 var(--font-display); margin: 30px 0 8px; }
+</style></head><body>
+<header class="hero"><p class="kicker">Operations reference · docuflow</p>
+<h1>Kubernetes command reference for docuflow</h1>
+<p class="lede">Every command used to build, deploy, scale, inspect, debug and recover docuflow. Each entry explains what the
+command does, why this project uses it, what to look for in the output, and any gotchas we hit. Commands are written
+for the local cluster (kind, context kind-docuflow, namespace docuflow); the same commands work on any
+cluster with the right context.</p>
+<div class="meta"><span>kind</span><span>kubectl</span><span>helm</span><span>kustomize</span><span>KEDA + HPA</span></div></header>
+<div class="wrap"><nav class="toc" aria-label="Sections"><div class="inner"><p>Contents</p><ol><li><a href="#1-cluster-lifecycle-kind"><span class="n">1</span>Cluster lifecycle (kind)</a></li><li><a href="#2-preparing-the-gpu-node"><span class="n">2</span>Preparing the GPU node</a></li><li><a href="#3-installing-platform-add-ons-helm"><span class="n">3</span>Installing platform add-ons (Helm)</a></li><li><a href="#4-deploying-docuflow-kustomize"><span class="n">4</span>Deploying docuflow (Kustomize)</a></li><li><a href="#5-seeing-whats-running"><span class="n">5</span>Seeing what's running</a></li><li><a href="#6-autoscaling-with-keda-and-hpa"><span class="n">6</span>Autoscaling with KEDA and HPA</a></li><li><a href="#7-configuration-and-secrets"><span class="n">7</span>Configuration and secrets</a></li><li><a href="#8-rollouts"><span class="n">8</span>Rollouts</a></li><li><a href="#9-fixing-kubectl-apply-fighting-keda"><span class="n">9</span>Fixing <code>kubectl apply</code> fighting KEDA</a></li><li><a href="#10-reaching-services-from-your-machine"><span class="n">10</span>Reaching services from your machine</a></li><li><a href="#11-inspecting-state-through-running-pods"><span class="n">11</span>Inspecting state through running pods</a></li><li><a href="#12-access-control"><span class="n">12</span>Access control</a></li><li><a href="#13-make-targets-and-the-commands-behind-them"><span class="n">13</span><code>make</code> targets and the commands behind them</a></li></ol></div></nav>
+<main><section><p>Conventions: <code>NS=docuflow</code>. <code>&lt;pod&gt;</code> means a pod name from <code>kubectl get pods</code>. Most <code>make</code> targets wrap these commands
+(see the last section).</p>
+<hr />
+</section><section id="1-cluster-lifecycle-kind"><h2 class="parttitle" id="h-1-cluster-lifecycle-kind">1. Cluster lifecycle (kind)</h2>
+<h3 id="create-the-cluster">Create the cluster</h3>
+<div class="scroll code"><pre><code class="language-bash">kind create cluster --name docuflow --config deploy/kind/cluster.yaml --image kindest/node:v1.31.0 --wait 180s
+</code></pre></div>
+<p><strong>What it does.</strong> Starts a Kubernetes cluster whose nodes are Docker containers: one control plane, one GPU worker
+and one CPU worker, as defined in <code>deploy/kind/cluster.yaml</code>.
+<strong>Why.</strong> kind gives a real Kubernetes API, scheduler and kubelets on one machine, enough to exercise KEDA, HPA,
+GPU scheduling and failure handling exactly as on a cloud cluster.
+<strong>Flags.</strong>
+- <code>--config</code>: node roles, labels (<code>docuflow.io/pool=gpu|cpu</code>), host port mappings (80/443 for ingress), and the
+  <code>/dev/null</code> mount that passes GPUs into the GPU node.
+- <code>--image</code>: pins the Kubernetes version.
+- <code>--wait</code>: blocks until the control plane is ready.</p>
+<p><strong>Output to expect.</strong> <code>Ready</code> nodes in <code>kubectl get nodes</code> within about a minute.</p>
+<h3 id="delete-the-cluster">Delete the cluster</h3>
+<div class="scroll code"><pre><code class="language-bash">kind delete cluster --name docuflow
+</code></pre></div>
+<p>Removes the node containers and everything in the cluster. Model weights survive, because they live on the host in
+<code>/var/cache/docuflow-hf</code>.</p>
+<h3 id="load-a-locally-built-image-into-the-nodes">Load a locally built image into the nodes</h3>
+<div class="scroll code"><pre><code class="language-bash">docker build -t docuflow:dev .
+kind load docker-image docuflow:dev --name docuflow
+</code></pre></div>
+<p><strong>What it does.</strong> Copies the image from the host's Docker into every node's containerd, so pods can start it with
+<code>imagePullPolicy: IfNotPresent</code> and no registry.
+<strong>Gotcha.</strong> For some large or multi-platform images (vLLM), <code>kind load</code> fails with <code>content digest ... not found</code>.
+Let the node pull from the registry instead (<code>docker exec docuflow-worker crictl pull &lt;image&gt;</code>).</p>
+<h3 id="switch-kubectl-to-the-cluster">Switch kubectl to the cluster</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl config use-context kind-docuflow
+kubectl config current-context
+</code></pre></div>
+<p>kind writes a context named <code>kind-&lt;cluster&gt;</code> into <code>~/.kube/config</code>. Every <code>kubectl</code> command acts on the current
+context, so check it before changing anything.</p>
+<hr />
+</section><section id="2-preparing-the-gpu-node"><h2 class="parttitle" id="h-2-preparing-the-gpu-node">2. Preparing the GPU node</h2>
+<p>These run inside the GPU node container; <code>scripts/cluster-up.sh</code> does all of them.</p>
+<h3 id="run-a-command-inside-a-kind-node">Run a command inside a kind node</h3>
+<div class="scroll code"><pre><code class="language-bash">docker exec docuflow-worker nvidia-smi -L
+</code></pre></div>
+<p>A kind node is a container, so <code>docker exec</code> gives a shell on the "machine". Here it confirms the host GPU is visible
+inside the node: one line per GPU, <code>GPU 0: NVIDIA L40S (UUID: ...)</code>.</p>
+<h3 id="make-the-nvidia-runtime-containerds-default-inside-the-node">Make the NVIDIA runtime containerd's default inside the node</h3>
+<div class="scroll code"><pre><code class="language-bash">docker exec docuflow-worker bash -c 'nvidia-ctk runtime configure --runtime=containerd --set-as-default &amp;&amp; systemctl restart containerd'
+</code></pre></div>
+<p><strong>Why.</strong> Pods get their containers from the node's containerd. Without the NVIDIA runtime as default, a pod that
+requests <code>nvidia.com/gpu</code> is scheduled but can't see the device.</p>
+<h3 id="unmask-the-nvidia-proc-files">Unmask the NVIDIA proc files</h3>
+<div class="scroll code"><pre><code class="language-bash">docker exec docuflow-worker bash -c 'for m in $(mount | awk &quot;/\/proc\/driver\/nvidia/ {print \$3}&quot;); do umount &quot;$m&quot;; done'
+</code></pre></div>
+<p><strong>Why.</strong> The host toolkit masks <code>/proc/driver/nvidia/params</code> inside the node. NVML in nested containers then fails
+(<code>driverInitFileInfo ... result=11</code>), and the device plugin can't enumerate GPUs.</p>
+<h3 id="taint-the-gpu-node">Taint the GPU node</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl taint nodes -l docuflow.io/pool=gpu nvidia.com/gpu=present:NoSchedule --overwrite
+</code></pre></div>
+<p><strong>What it does.</strong> Adds a taint so that only pods with a matching toleration (the vLLM servers, device plugin, DCGM)
+can run there. <code>-l</code> selects nodes by label; <code>--overwrite</code> makes it idempotent.
+<strong>Why.</strong> It keeps CPU workloads (workers, API, database) off the GPU node, where they'd compete for CPU with vLLM.</p>
+<h3 id="label-the-gpu-node-for-the-device-plugin">Label the GPU node for the device plugin</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl label nodes -l docuflow.io/pool=gpu nvidia.com/gpu.present=true --overwrite
+</code></pre></div>
+<p><strong>Why.</strong> The NVIDIA device-plugin chart only schedules onto nodes labelled by Node Feature Discovery. Without the
+label its DaemonSet has <strong>0 pods</strong> and no GPU is ever advertised.</p>
+<h3 id="check-what-each-node-offers">Check what each node offers</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl get nodes -o custom-columns='NODE:.metadata.name,POOL:.metadata.labels.docuflow\.io/pool,GPU:.status.allocatable.nvidia\.com/gpu'
+</code></pre></div>
+<p><strong>What it does.</strong> Prints selected fields with JSONPath. Dots inside label and resource names are escaped with <code>\.</code>.
+<strong>Expect.</strong> <code>GPU 6</code> on the GPU node: one L40S advertised as 6 time-sliced units.</p>
+<hr />
+</section><section id="3-installing-platform-add-ons-helm"><h2 class="parttitle" id="h-3-installing-platform-add-ons-helm">3. Installing platform add-ons (Helm)</h2>
+<h3 id="add-chart-repositories">Add chart repositories</h3>
+<div class="scroll code"><pre><code class="language-bash">helm repo add kedacore https://kedacore.github.io/charts
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add nvdp https://nvidia.github.io/k8s-device-plugin
+helm repo update
+</code></pre></div>
+<p>Registers where charts come from and refreshes their indexes. Charts are versioned packages of Kubernetes manifests.</p>
+<h3 id="install-or-upgrade-a-release">Install or upgrade a release</h3>
+<div class="scroll code"><pre><code class="language-bash">helm upgrade --install keda kedacore/keda -n keda --create-namespace --version 2.15.1 --wait
+helm upgrade --install metrics-server metrics-server/metrics-server -n kube-system --set 'args={--kubelet-insecure-tls}' --wait
+helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack -n monitoring --create-namespace \
+  --version 65.5.0 -f deploy/helm-values/kube-prometheus-stack.yaml --wait --timeout 10m
+helm upgrade --install nvidia-device-plugin nvdp/nvidia-device-plugin -n nvidia --create-namespace \
+  --version 0.17.0 -f deploy/helm-values/nvidia-device-plugin.yaml --wait
+</code></pre></div>
+<p><strong>What it does.</strong> <code>upgrade --install</code> installs the release if it doesn't exist and upgrades it if it does, so scripts
+can run it repeatedly.
+- <code>-n</code> / <code>--create-namespace</code>: target namespace.
+- <code>--version</code>: pins the chart version (unpinned charts drift).
+- <code>-f</code>: a values file.
+- <code>--set</code>: a single override.
+- <code>--wait</code>: block until the release's pods are ready.</p>
+<p><strong>What each one is for here.</strong>
+- <strong>KEDA:</strong> queue-driven autoscaling.
+- <strong>metrics-server:</strong> CPU and memory metrics for HPA and <code>kubectl top</code>. <code>--kubelet-insecure-tls</code> is needed because
+  kind kubelets use self-signed certificates.
+- <strong>kube-prometheus-stack:</strong> Prometheus, Grafana, Alertmanager, kube-state-metrics.
+- <strong>device plugin:</strong> advertises GPUs, with time-slicing configured in the values file.</p>
+<p><strong>Gotcha.</strong> The device-plugin chart refuses values that set both <code>config.name</code> and <code>config.map</code>. Use only <code>config.map</code>.</p>
+<h3 id="change-one-value-of-an-installed-release">Change one value of an installed release</h3>
+<div class="scroll code"><pre><code class="language-bash">helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack -n monitoring --version 65.5.0 \
+  --reuse-values --set &quot;grafana.ingress.hosts={grafana.localtest.me,grafana.&lt;ip&gt;.nip.io}&quot; --wait
+</code></pre></div>
+<p><code>--reuse-values</code> keeps every previously set value and applies only the new <code>--set</code>. Without it, an upgrade resets
+everything to chart defaults plus what you pass.</p>
+<h3 id="see-what-is-installed">See what is installed</h3>
+<div class="scroll code"><pre><code class="language-bash">helm ls -A
+</code></pre></div>
+<p>Lists every release in every namespace (<code>-A</code>), with chart version and status.</p>
+<hr />
+</section><section id="4-deploying-docuflow-kustomize"><h2 class="parttitle" id="h-4-deploying-docuflow-kustomize">4. Deploying docuflow (Kustomize)</h2>
+<h3 id="render-an-overlay-without-applying-it">Render an overlay without applying it</h3>
+<div class="scroll code"><pre><code class="language-bash">kustomize build k8s/overlays/local-gpu          # or: kubectl kustomize k8s/overlays/local-gpu
+</code></pre></div>
+<p><strong>What it does.</strong> Merges <code>k8s/base</code> with the overlay's components (models, monitoring, ingress), patches and
+generated Secret, and prints the final YAML.
+<strong>Why.</strong> You can review exactly what will be applied, and validate it in CI:</p>
+<div class="scroll code"><pre><code class="language-bash">kustomize build k8s/overlays/prod | kubeconform -strict -summary -kubernetes-version 1.31.0 -schema-location default \
+  -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
+</code></pre></div>
+<p><code>kubeconform</code> checks every object against the Kubernetes schemas, and the CRD catalog covers KEDA and Prometheus
+Operator types. The result should be <code>Invalid: 0, Errors: 0</code>.</p>
+<h3 id="apply-an-overlay">Apply an overlay</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl apply -k k8s/overlays/local-gpu
+</code></pre></div>
+<p><strong>What it does.</strong> Renders the overlay and creates or updates every object (server-side diff against the
+<code>last-applied-configuration</code> annotation).
+<strong>Output.</strong> One line per object: <code>created</code>, <code>configured</code> (changed) or <code>unchanged</code>.
+<strong>Gotchas.</strong>
+- <strong>Never put <code>replicas:</code> on a Deployment that KEDA manages.</strong> Every apply would reset the live count. Removing the
+  field later needs the fix in section 9.
+- A full apply also resets anything you live-patched (ScaledObject maxima, ConfigMap values). Use the targeted
+  commands in section 7 for runtime changes.
+- <code>Warning: would violate PodSecurity "restricted:latest"</code> is informational. The namespace <em>enforces</em> <code>baseline</code>
+  and only <em>warns</em> on <code>restricted</code>; vLLM and Postgres images need root.</p>
+<h3 id="apply-only-some-objects-from-an-overlay">Apply only some objects from an overlay</h3>
+<div class="scroll code"><pre><code class="language-bash">kustomize build k8s/overlays/local-gpu | python3 -c &quot;
+import sys, yaml
+docs = [d for d in yaml.safe_load_all(sys.stdin) if d and (d['kind'] == 'PrometheusRule' or d['metadata']['name'] == 'docuflow-grafana-dashboard')]
+yaml.safe_dump_all(docs, sys.stdout)&quot; | kubectl apply -f -
+</code></pre></div>
+<p><strong>Why.</strong> It updates the Grafana dashboard and alert rules without touching Deployments or ScaledObjects. <code>-f -</code>
+reads manifests from stdin.</p>
+<h3 id="apply-a-single-file">Apply a single file</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl apply -f deploy/some-object.yaml
+</code></pre></div>
+<h3 id="remove-docuflow">Remove docuflow</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl delete -k k8s/overlays/local-gpu --ignore-not-found
+</code></pre></div>
+<p>Deletes everything the overlay created. PersistentVolumes with <code>Retain</code> (the model cache) keep their data.</p>
+<hr />
+</section><section id="5-seeing-whats-running"><h2 class="parttitle" id="h-5-seeing-whats-running">5. Seeing what's running</h2>
+<h3 id="pods-scaledobjects-and-hpas-at-a-glance">Pods, ScaledObjects and HPAs at a glance</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n docuflow get pods,scaledobject,hpa -o wide
+</code></pre></div>
+<p>Several resource types in one call. <code>-o wide</code> adds node and IP columns.
+<strong>Read it like this.</strong>
+- Pod <code>STATUS</code> should be <code>Running</code> with <code>READY 1/1</code>.
+- ScaledObjects: <code>READY=True</code>, and <code>ACTIVE=True</code> when there's work.
+- HPA <code>TARGETS</code> shows the live metric against the target, e.g. <code>25667m/4 (avg)</code> = 25.7 queries per pod against a
+  target of 4.</p>
+<h3 id="count-pods-by-namespace-or-workload">Count pods by namespace or workload</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl get pods -A --no-headers | awk '{print $1}' | sort | uniq -c
+kubectl -n docuflow get pods --no-headers | awk '{split($1,a,&quot;-&quot;); print a[1]&quot;-&quot;a[2]}' | sort | uniq -c
+</code></pre></div>
+<p><code>-A</code> covers all namespaces, and <code>--no-headers</code> makes the output easy to pipe.</p>
+<h3 id="watch-changes-live">Watch changes live</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n docuflow get pods -w
+watch -n2 kubectl -n docuflow get scaledobject,hpa
+</code></pre></div>
+<p><code>-w</code> streams changes as they happen, which is the easiest way to watch KEDA add and remove workers.</p>
+<h3 id="replica-counts-per-deployment">Replica counts per Deployment</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n docuflow get deploy -o custom-columns=NAME:.metadata.name,WANT:.spec.replicas,READY:.status.readyReplicas
+</code></pre></div>
+<p><code>WANT</code> is what KEDA/HPA asked for, and <code>READY</code> is what's serving. A persistent gap means pods can't start: check
+pending pods and events.</p>
+<h3 id="why-is-a-pod-pending-or-failing">Why is a pod pending or failing?</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n docuflow describe pod &lt;pod&gt;
+kubectl -n docuflow get pods --field-selector=status.phase=Pending
+kubectl -n docuflow get events --sort-by=.lastTimestamp | tail -20
+</code></pre></div>
+<p><code>describe</code> shows the scheduler's reason at the bottom (<code>Events</code>). Ones we saw:
+- <code>pod has unbound immediate PersistentVolumeClaims</code>: the volume isn't bound yet. It resolves itself.
+- <code>0/3 nodes are available: insufficient nvidia.com/gpu</code>: all GPU slots are taken.
+- <code>CrashLoopBackOff</code>: the container keeps exiting. Read its logs.</p>
+<h3 id="logs">Logs</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n docuflow logs deploy/api --tail=50                 # one pod of a Deployment
+kubectl -n docuflow logs &lt;pod&gt; --previous                      # the container that just crashed
+kubectl -n docuflow logs -l app=worker-vlm --tail=20 --prefix  # all pods with a label, each line prefixed
+kubectl -n keda logs deploy/keda-operator --since=5m | grep ERROR
+</code></pre></div>
+<p><strong><code>--previous</code> is the key one for crash loops.</strong> The current container may have just restarted and logged nothing
+yet. For example, it showed vLLM's real error: <code>Free memory on device ... less than desired GPU memory utilization</code>.</p>
+<h3 id="resource-usage">Resource usage</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl top nodes
+kubectl top pods -A --sort-by=cpu | head
+</code></pre></div>
+<p>Live CPU and memory from metrics-server. This is how we found the three vLLM page readers using ~17 cores each:
+thread oversubscription.</p>
+<hr />
+</section><section id="6-autoscaling-with-keda-and-hpa"><h2 class="parttitle" id="h-6-autoscaling-with-keda-and-hpa">6. Autoscaling with KEDA and HPA</h2>
+<h3 id="status-of-every-scaledobject">Status of every ScaledObject</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n docuflow get scaledobject
+kubectl -n docuflow get scaledobject -o custom-columns=NAME:.metadata.name,MIN:.spec.minReplicaCount,MAX:.spec.maxReplicaCount,READY:.status.conditions[0].status,ACTIVE:.status.conditions[1].status
+</code></pre></div>
+<ul>
+<li><code>READY=False</code> means KEDA can't read the trigger: bad host, DNS, auth or a missing TriggerAuthentication.</li>
+<li><code>ACTIVE</code> means at least one trigger is above its activation value.</li>
+</ul>
+<h3 id="why-is-a-scaledobject-not-ready">Why is a ScaledObject not ready?</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n docuflow get scaledobject worker-vlm -o jsonpath='{range .status.conditions[*]}{.type}={.status} {.message}{&quot;\n&quot;}{end}'
+kubectl -n keda logs deploy/keda-operator --since=5m | grep -i error | tail
+</code></pre></div>
+<p>Errors we hit, and their fixes:
+- <code>lookup rabbitmq ... no such host</code>: KEDA runs in the <code>keda</code> namespace, so use FQDNs
+  (<code>rabbitmq.docuflow.svc.cluster.local</code>).
+- <code>TriggerAuthentication ... not found</code>: a creation-order race; apply TriggerAuthentications first.</p>
+<h3 id="the-hpa-that-keda-created">The HPA that KEDA created</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n docuflow get hpa
+kubectl -n docuflow describe hpa keda-hpa-worker-vlm
+</code></pre></div>
+<p>KEDA creates one HPA per ScaledObject, named <code>keda-hpa-&lt;name&gt;</code>. <code>describe</code> shows each metric's current value, the
+desired replica count, and scaling events with reasons (for example <code>New size: 12; reason: external metric
+s0-rabbitmq-docuflow-vlm above target</code>).</p>
+<h3 id="force-keda-to-reconcile-now">Force KEDA to reconcile now</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n docuflow annotate scaledobject --all reconcile=$(date +%s) --overwrite
+kubectl -n keda rollout restart deploy/keda-operator
+</code></pre></div>
+<p>After fixing a broken trigger, the operator may be in a long error backoff. Changing an annotation triggers a
+reconcile; restarting the operator clears all backoffs. We needed the restart once: the ScaledObjects went <code>READY</code>
+within 30 s.</p>
+<h3 id="change-autoscaling-limits-at-runtime">Change autoscaling limits at runtime</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n docuflow patch scaledobject worker-vlm --type merge -p '{&quot;spec&quot;:{&quot;maxReplicaCount&quot;:72}}'
+</code></pre></div>
+<p><strong>What it does.</strong> A JSON merge patch that changes only the listed field. KEDA updates its HPA within seconds.
+<strong>Why not edit the YAML and apply?</strong> A full apply resets other live changes. A patch is targeted, which is what
+<code>scripts/mode.sh</code> uses.
+<strong>Remember.</strong> In-app limits (<code>PER_DATASET_CAP</code>, <code>LIMIT_VLM</code>) must stay above the new maximum, or the extra pods sit
+idle (challenge 1).</p>
+<h3 id="scale-a-deployment-by-hand">Scale a Deployment by hand</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n docuflow scale deploy/model-llm --replicas=0
+</code></pre></div>
+<p>Sets replicas directly. Use it on Deployments <strong>without</strong> a ScaledObject (<code>model-llm</code> locally). On a KEDA-managed
+Deployment, the HPA overrides a manual scale within seconds.</p>
+<hr />
+</section><section id="7-configuration-and-secrets"><h2 class="parttitle" id="h-7-configuration-and-secrets">7. Configuration and secrets</h2>
+<h3 id="create-or-update-a-secret-idempotently">Create or update a Secret idempotently</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n docuflow create secret generic docuflow-secrets \
+  --from-literal=POSTGRES_PASSWORD=&quot;$POSTGRES_PASSWORD&quot; --from-literal=DOCUFLOW_DSN=&quot;$DOCUFLOW_DSN&quot; \
+  --dry-run=client -o yaml | kubectl apply -f -
+</code></pre></div>
+<p><strong>Why this pattern.</strong> <code>create</code> fails if the Secret exists. <code>--dry-run=client -o yaml</code> only renders it, and <code>apply</code>
+then creates or updates it. Secret values never appear in a committed file.</p>
+<h3 id="change-one-key-of-a-secret-or-configmap">Change one key of a Secret or ConfigMap</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n docuflow patch secret docuflow-secrets --type merge -p '{&quot;stringData&quot;:{&quot;DOCUFLOW_API_KEY&quot;:&quot;&lt;key&gt;&quot;}}'
+kubectl -n docuflow patch configmap docuflow-config --type merge -p '{&quot;data&quot;:{&quot;QUERY_PRESSURE_INFLIGHT&quot;:&quot;0&quot;}}'
+</code></pre></div>
+<p><code>stringData</code> takes plain text, and Kubernetes base64-encodes it. <strong>Pods read environment variables at start</strong>, so
+restart the Deployments that use them (section 8).</p>
+<h3 id="read-a-value">Read a value</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n docuflow get cm docuflow-config -o jsonpath='{.data.LIMIT_VLM}'
+kubectl -n docuflow get secret docuflow-secrets -o jsonpath='{.data.DOCUFLOW_DSN}' | base64 -d
+</code></pre></div>
+<h3 id="change-one-argument-of-a-container">Change one argument of a container</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n docuflow get deploy model-vlm -o json | python3 -c &quot;
+import json, sys
+d = json.load(sys.stdin); a = d['spec']['template']['spec']['containers'][0]['args']
+i = a.index('--max-num-seqs'); a[i + 1] = '24'
+print(json.dumps([{'op': 'replace', 'path': '/spec/template/spec/containers/0/args', 'value': a}]))&quot; \
+| xargs -0 -I{} kubectl -n docuflow patch deploy model-vlm --type json -p {}
+</code></pre></div>
+<p>A JSON Patch (<code>--type json</code>) replaces the whole <code>args</code> list with an edited copy. That's how ingest mode resizes the
+vLLM page readers' KV cache and batch slots without editing manifests. Changing the pod template triggers a rollout.</p>
+<hr />
+</section><section id="8-rollouts"><h2 class="parttitle" id="h-8-rollouts">8. Rollouts</h2>
+<h3 id="restart-pods-to-pick-up-a-new-image-or-config">Restart pods to pick up a new image or config</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n docuflow rollout restart deploy/api deploy/worker-vlm
+</code></pre></div>
+<p>Adds a timestamp annotation to the pod template, which makes the Deployment replace its pods according to its
+strategy. With the <code>:dev</code> tag and <code>IfNotPresent</code>, this is how a freshly loaded image takes effect.</p>
+<h3 id="wait-for-a-rollout-to-finish">Wait for a rollout to finish</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n docuflow rollout status deploy/model-vlm --timeout=900s
+</code></pre></div>
+<p>Blocks until every new pod is ready, and fails on timeout. Scripts use it before the next step.</p>
+<h3 id="rollout-strategies-and-why-they-differ-here">Rollout strategies, and why they differ here</h3>
+<ul>
+<li><strong>Workers and API (<code>RollingUpdate</code>):</strong> new pods start before old ones stop, and each worker finishes its current
+  job during its 180 s grace period.</li>
+<li><strong>vLLM on a shared GPU (<code>Recreate</code>):</strong> a surge pod can't get GPU memory while the old ones hold it, so rolling
+  updates deadlock (<code>Free memory on device (1.2/44.4 GiB) ... less than desired</code>). <code>Recreate</code> stops the old pods
+  first. In-flight page reads are deferred (ADR-05), not lost.</li>
+</ul>
+<h3 id="inspect-history-and-roll-back">Inspect history and roll back</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n docuflow rollout history deploy/api
+kubectl -n docuflow rollout undo deploy/api
+</code></pre></div>
+<p><code>undo</code> returns to the previous ReplicaSet. <code>revisionHistoryLimit: 5</code> keeps five.</p>
+<hr />
+</section><section id="9-fixing-kubectl-apply-fighting-keda"><h2 class="parttitle" id="h-9-fixing-kubectl-apply-fighting-keda">9. Fixing <code>kubectl apply</code> fighting KEDA</h2>
+<div class="scroll code"><pre><code class="language-bash">for d in api worker-io worker-vlm worker-embed model-vlm model-embed; do
+  kubectl -n docuflow get deploy $d -o jsonpath='{.metadata.annotations.kubectl\.kubernetes\.io/last-applied-configuration}' \
+  | python3 -c &quot;import sys,json; c=json.load(sys.stdin); c['spec'].pop('replicas',None); print(json.dumps(c))&quot; &gt; /tmp/la.json
+  kubectl -n docuflow annotate deploy $d --overwrite kubectl.kubernetes.io/last-applied-configuration=&quot;$(cat /tmp/la.json)&quot;
+done
+</code></pre></div>
+<p><strong>What it does.</strong> Removes <code>replicas</code> from the <code>last-applied-configuration</code> annotation of each KEDA-managed
+Deployment.
+<strong>Why.</strong> <code>kubectl apply</code> compares the new manifest with this annotation. If <code>replicas</code> was applied before and is now
+missing from the manifest, apply deletes the field, which resets the Deployment to 1 replica. After this one-time
+fix, applies leave KEDA's counts alone.</p>
+<hr />
+</section><section id="10-reaching-services-from-your-machine"><h2 class="parttitle" id="h-10-reaching-services-from-your-machine">10. Reaching services from your machine</h2>
+<h3 id="port-forward-a-service">Port-forward a Service</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n docuflow port-forward svc/api 8792:8791
+kubectl -n monitoring port-forward svc/kube-prometheus-stack-prometheus 19090:9090
+kubectl -n docuflow port-forward svc/model-llm 18002:8000
+</code></pre></div>
+<p><strong>What it does.</strong> Tunnels a local port to a Service through the API server; it runs until you stop it. Used here to
+call the API without ingress, query Prometheus's HTTP API, and let the RAGAS judge reach the vLLM servers.
+<strong>Note.</strong> Port-forwarding bypasses NetworkPolicies and only listens on localhost.</p>
+<h3 id="ingress-routes">Ingress routes</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl get ingress -A
+</code></pre></div>
+<p>Shows host → Service routing: <code>docuflow.localtest.me</code> → api, <code>grafana.localtest.me</code> → Grafana. <code>*.localtest.me</code>
+resolves to 127.0.0.1, and kind maps host ports 80/443 to the ingress controller.</p>
+<h3 id="a-throwaway-pod-for-in-cluster-checks">A throwaway pod for in-cluster checks</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n docuflow run check --rm -i --restart=Never --image=docuflow:dev --image-pull-policy=Never --command -- \
+  python -c &quot;import httpx; print(httpx.get('http://model-vlm:8000/health').status_code)&quot;
+</code></pre></div>
+<ul>
+<li><code>--rm -i</code>: attach, then delete the pod when the command ends.</li>
+<li><code>--restart=Never</code>: create a bare Pod, not a Deployment.</li>
+</ul>
+<p>This tests DNS, Services and NetworkPolicies from inside the namespace, where the workers run.</p>
+<hr />
+</section><section id="11-inspecting-state-through-running-pods"><h2 class="parttitle" id="h-11-inspecting-state-through-running-pods">11. Inspecting state through running pods</h2>
+<h3 id="query-postgres">Query Postgres</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n docuflow exec db-0 -- psql -U docuflow -c &quot;SELECT lane, status, count(*) FROM jobs GROUP BY 1,2 ORDER BY 1,2&quot;
+kubectl -n docuflow exec db-0 -- psql -U docuflow -At -c &quot;SELECT count(*) FILTER (WHERE status='indexed'), count(*) FROM documents&quot;
+</code></pre></div>
+<p><code>exec</code> runs a command in an existing container. <code>-At</code> gives unaligned, tuples-only output for scripts. This is how
+every ingest-progress number in the write-up was measured.</p>
+<h3 id="rabbitmq-queue-depths-kedas-input">RabbitMQ queue depths (KEDA's input)</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n docuflow exec rabbitmq-0 -- rabbitmqctl -q list_queues name messages_ready messages_unacknowledged consumers
+</code></pre></div>
+<p><code>messages_ready</code> on <code>docuflow.&lt;lane&gt;</code> is what the KEDA rabbitmq scaler reads. The <code>.delay</code> queues hold retry and
+outage backoffs.</p>
+<h3 id="vllms-own-load">vLLM's own load</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n docuflow exec &lt;model-vlm-pod&gt; -- python3 -c &quot;import urllib.request;print(urllib.request.urlopen('http://127.0.0.1:8000/metrics').read().decode())&quot; \
+  | grep -E '^vllm:(num_requests_running|num_requests_waiting|kv_cache_usage_perc)'
+</code></pre></div>
+<ul>
+<li><code>running</code>: requests in the batch (capped by <code>--max-num-seqs</code>).</li>
+<li><code>waiting</code>: requests queued for a slot.</li>
+<li><code>kv_cache_usage_perc</code>: cache fill.</li>
+</ul>
+<p>This is how we found the load imbalance between replicas (16+6 waiting vs 2).</p>
+<h3 id="check-a-value-inside-a-running-pod">Check a value inside a running pod</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n docuflow exec deploy/worker-vlm -- python -c &quot;from docuflow import config; print(config.VLM_MAX_TOKENS)&quot;
+</code></pre></div>
+<p>It confirms a rollout really runs the new code and config before you rely on it.</p>
+<hr />
+</section><section id="12-access-control"><h2 class="parttitle" id="h-12-access-control">12. Access control</h2>
+<h3 id="check-what-an-identity-may-do">Check what an identity may do</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl auth can-i list pods -n docuflow --as=system:serviceaccount:headlamp:viewer
+kubectl auth can-i delete pods -n docuflow --as=system:serviceaccount:headlamp:viewer
+</code></pre></div>
+<p><code>--as</code> impersonates a ServiceAccount, so you can verify RBAC before handing out its token. The read-only viewer
+must answer <code>yes</code> to list and <code>no</code> to delete, patch and get secrets.</p>
+<h3 id="issue-a-short-lived-token">Issue a short-lived token</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n headlamp create token viewer --duration=168h
+</code></pre></div>
+<p>Creates a time-bound token for a ServiceAccount (7 days here). Nothing is stored in a Secret; the token simply
+expires.</p>
+<hr />
+</section><section id="13-make-targets-and-the-commands-behind-them"><h2 class="parttitle" id="h-13-make-targets-and-the-commands-behind-them">13. <code>make</code> targets and the commands behind them</h2>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>target</th>
+<th>runs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>make cluster-up</code></td>
+<td><code>scripts/cluster-up.sh</code>: sections 1–3</td>
+</tr>
+<tr>
+<td><code>make deploy</code></td>
+<td><code>docker build</code> + <code>kind load</code> + <code>kubectl apply -k</code> + <code>rollout status</code></td>
+</tr>
+<tr>
+<td><code>make render</code></td>
+<td><code>kustomize build</code> + <code>kubeconform</code> for every overlay</td>
+</tr>
+<tr>
+<td><code>make k8s-status</code></td>
+<td><code>get pods,scaledobject,hpa</code> + node GPU columns + RabbitMQ <code>list_queues</code></td>
+</tr>
+<tr>
+<td><code>make ingest-mode</code> / <code>query-mode</code></td>
+<td><code>scripts/mode.sh</code>: API pause/resume, <code>scale</code>, <code>patch scaledobject</code>, <code>patch configmap</code>, vLLM arg patches</td>
+</tr>
+<tr>
+<td><code>make smoke</code>, <code>make stress</code>, <code>make quality-eval</code>, <code>make ragas</code></td>
+<td>HTTP checks, load generator and evals (they use <code>port-forward</code> where needed)</td>
+</tr>
+<tr>
+<td><code>make cluster-down</code></td>
+<td><code>kind delete cluster</code></td>
+</tr>
+</tbody>
+</table></div></section></main></div></body></html>

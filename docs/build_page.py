@@ -8,6 +8,8 @@ import sys
 import markdown
 
 src, out, title = sys.argv[1], sys.argv[2], sys.argv[3]
+META = [m for m in (sys.argv[4] if len(sys.argv) > 4 else "").split("|") if m]
+KICKER = sys.argv[5] if len(sys.argv) > 5 else "Design reference · docuflow"
 style = re.search(r"<style>(.*?)</style>", open("docs/blog/index.html").read(), re.S).group(1)
 text = open(src).read()
 h1, body = text.split("\n", 1)
@@ -30,10 +32,10 @@ page = f"""<!DOCTYPE html>
 main > section {{ padding-top: 28px; }} section + section {{ margin-top: 28px; }}
 h4 {{ font: 700 19px/1.3 var(--font-display); margin: 30px 0 8px; }}
 </style></head><body>
-<header class="hero"><p class="kicker">Design reference · docuflow</p>
+<header class="hero"><p class="kicker">{html.escape(KICKER)}</p>
 <h1>{html.escape(re.sub(r"^# ", "", h1))}</h1>
 <p class="lede">{html.escape(re.sub(r"[`*]", "", status).replace("](blog/README.md)", "").replace("[", ""))}</p>
-<div class="meta"><span>14 decision records</span><span>SLOs with measured values</span><span>capacity model</span><span>roadmap</span></div></header>
+<div class="meta">{"".join(f"<span>{m}</span>" for m in META)}</div></header>
 <div class="wrap"><nav class="toc" aria-label="Sections"><div class="inner"><p>Contents</p><ol>{nav}</ol></div></nav>
 <main>{h}</main></div></body></html>"""
 open(out, "w").write(page)

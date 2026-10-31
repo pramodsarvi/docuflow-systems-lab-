@@ -112,6 +112,12 @@ extraction CER/F1 against the Hub datasets' ground truth and DocVQA exact-match 
 the target architecture, data flows, a capacity model from measurements, and 14 decision records (accepted and
 proposed), each citing the evidence behind it, plus the roadmap.
 
+## Kubernetes command reference
+
+[`docs/kubernetes-commands.md`](docs/kubernetes-commands.md) lists every `kind`, `kubectl`, `helm` and `kustomize`
+command used to build, deploy, scale, inspect, debug and recover the system. Each entry covers what it does, why it's
+used here, what to look for in the output, and the gotchas we hit.
+
 ## Challenges and lessons
 
 Building and stress-testing this system surfaced 14 failures. Most sat around the autoscaler, not in it:

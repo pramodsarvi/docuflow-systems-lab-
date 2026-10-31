@@ -31,6 +31,9 @@ What the stress tests showed:
 - **Scaling the wrong tier does nothing.** KEDA scaled the API to 8 pods under 96 concurrent queries; each pod used
   5 millicores, because the bottleneck was the agent model's batch slots (32 running, 64 waiting). Latency only
   moved when the model server got more capacity.
+- **Load tests don't measure correctness.** The first stress run had zero errors and 17% correct answers. Layered
+  evals (extraction, retrieval hit@k, RAGAS) located the fault in search tokenisation. After the fixes: retrieval
+  hit@1 99%, RAGAS exact match 0.975, faithfulness 0.975.
 - **On one GPU, the GPU is the ceiling.** Autoscaling redistributes a fixed budget. The last lever was choosing what
   the budget is for: an *ingest mode* that pauses queries and gives the whole GPU to page reading.
 
@@ -46,6 +49,8 @@ What the stress tests showed:
 6. [Stress testing: method and results](06-stress-tests.md): the load generator, the runs, latency by load step
 7. [What broke, and the fixes](07-what-broke.md): fourteen failures, each with symptom, cause and fix
 8. [Recreate it](08-recreate.md): commands from a bare GPU machine to a stress report, plus the cost trade-offs
+9. [Evaluation: RAGAS and the layers beneath it](09-evaluation.md): extraction and handwriting accuracy, retrieval
+   hit@k, RAGAS (faithfulness, relevancy, context precision/recall) judged in-cluster, and benchmarking a faster model
 
 All code is in this repository: manifests in `k8s/`, cluster bootstrap in `scripts/cluster-up.sh`, the load generator
 in `scripts/stress.py`.

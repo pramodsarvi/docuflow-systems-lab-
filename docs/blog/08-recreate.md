@@ -93,11 +93,14 @@ make stress PAGES=800 C=12                         # run 1 equivalent
 Reports land in `docs/`. For before/after comparisons, change one thing at a time and don't `kubectl apply` during a
 run (Part 7, failure 10).
 
-## 6. Evaluate answer quality
+## 6. Evaluate
 
 ```bash
-make ragas N=40      # faithfulness, answer relevancy, context precision/recall, judged by the cluster's own models
+.venv/bin/python evals/quality_eval.py      # extraction, handwriting, retrieval hit@k (no LLM)
+make ragas N=40 DOCVQA=40                   # RAGAS: synthetic corpus-wide + DocVQA page-scoped, judged in-cluster
 ```
+
+Part 9 explains each layer and when to run it.
 
 ## 7. Choose what the GPU is for
 

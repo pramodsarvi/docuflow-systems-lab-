@@ -42,13 +42,13 @@ def _fmt_hits(hits):
     return "\n".join(f"[{h['doc_id']}] ({h['dataset']}, {h['lang']}, {'+'.join(h['kinds'])}) {h['text'][:500]}" for h in hits)
 
 
-def _search_obs(query, dataset, kind, lang):
+def _search_obs(query, dataset, kind, lang, doc_id=None):
     hits = retrieval.search(query, k=5, dataset=dataset if dataset in config.DATASETS else None,
-                            kind=kind if kind in ("printed", "handwritten") else None, lang=lang)
+                            kind=kind if kind in ("printed", "handwritten") else None, lang=lang, doc_id=doc_id)
     return hits, _fmt_hits(hits)
 
 
-def run(question, dataset=None, max_steps=None, lang=None):
+def run(question, dataset=None, max_steps=None, lang=None, doc_id=None):
     max_steps = max_steps or config.AGENT_MAX_STEPS
     qid, t0, trace, seen = str(uuid.uuid4()), time.perf_counter(), [], set()
     with db.pool().connection() as c:
@@ -61,13 +61,15 @@ def run(question, dataset=None, max_steps=None, lang=None):
         try:
             stats = retrieval.corpus_stats_cached()
             hint = f"\nRestrict searches to dataset '{dataset}'." if dataset else ""
+            if doc_id:
+                hint += f"\nThe question is about document {doc_id} only; every search is limited to it."
             msgs = [{"role": "system", "content": SYSTEM.replace("{datasets}", ", ".join(config.DATASETS)) + hint}]
             first = f"Corpus status: {stats}\n\nQuestion: {question}"
             if config.AGENT_PRESEARCH:
                 # Retrieve first, then reason: the agent's first action is a search on the question in practically every
                 # run, so doing it up front saves one LLM round trip per query (the slowest part under load).
                 with tracing.span("tool.search", "TOOL", tool__name="search", input__value=question) as ts:
-                    hits, obs = _search_obs(question, dataset, None, lang)
+                    hits, obs = _search_obs(question, dataset, None, lang, doc_id)
                     ts.set(output__value=obs)
                 seen.update(h["doc_id"] for h in hits)
                 searches += 1
@@ -120,7 +122,7 @@ def run(question, dataset=None, max_steps=None, lang=None):
                                   input__value=a.get("query") or a.get("doc_id")) as ts:
                     if act == "search":
                         ds = a.get("dataset") or dataset
-                        hits, obs = _search_obs(a.get("query") or question, ds, a.get("kind"), lang)
+                        hits, obs = _search_obs(a.get("query") or question, ds, a.get("kind"), lang, doc_id)
                         seen.update(h["doc_id"] for h in hits)
                         searches += 1
                         entry.update(query=a.get("query"), dataset=ds, kind=a.get("kind"), doc_ids=[h["doc_id"] for h in hits])

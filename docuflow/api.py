@@ -52,6 +52,7 @@ class IngestReq(BaseModel):
 class QueryReq(BaseModel):
     question: str
     dataset: Optional[str] = None
+    doc_id: Optional[str] = None      # scope the question to one document (page-specific questions, evals)
     lang: Optional[str] = None
     max_steps: Optional[int] = None
 
@@ -151,12 +152,12 @@ async def query(r: QueryReq):
         raise HTTPException(503, "queries are paused (ingest-priority mode); resume with POST /workloads/queries {\"paused\": false}",
                             headers={"Retry-After": "300"})
     # Runs in a thread so queries are served while workers keep ingesting.
-    return await run_in_threadpool(agent.run, r.question, r.dataset, r.max_steps, r.lang)
+    return await run_in_threadpool(agent.run, r.question, r.dataset, r.max_steps, r.lang, r.doc_id)
 
 
 @app.get("/search")
 def search(q: str, k: int = 5, dataset: Optional[str] = None, kind: Optional[str] = None):
-    return retrieval.search(q, k, dataset, kind)
+    return [{kk: v for kk, v in h.items() if kk != "embedding"} for h in retrieval.search(q, k, dataset, kind)]
 
 
 @app.get("/workloads")
@@ -198,6 +199,32 @@ def list_jobs(status: Optional[str] = None, limit: int = 50):
     with db.pool().connection() as c:
         return c.execute("SELECT id,dataset,stage,lane,status,attempts,priority,error,locked_by,created_at,finished_at FROM jobs "
                          "WHERE (%s::text IS NULL OR status=%s) ORDER BY id DESC LIMIT %s", (status, status, limit)).fetchall()
+
+
+@app.get("/eval/qa")
+def eval_qa(dataset: str = "docvqa", n: int = 40, seed: float = 0.42):
+    """Question/answer pairs shipped with a dataset (DocVQA), sampled from indexed pages, one question per page."""
+    with db.pool().connection() as c:
+        c.execute("SELECT setseed(%s)", (seed,))
+        rows = c.execute("""SELECT id, gt_qa FROM documents WHERE dataset=%s AND status='indexed' AND gt_qa IS NOT NULL
+                            ORDER BY random() LIMIT %s""", (dataset, min(n, 500))).fetchall()
+    out = []
+    for r in rows:
+        qa = r["gt_qa"][0]
+        out.append({"doc_id": r["id"], "question": qa["question"], "answers": qa["answers"]})
+    return out
+
+
+@app.get("/eval/extractions")
+def eval_extractions(dataset: str, n: int = 500, seed: float = 0.42):
+    """Vision-model readings next to the dataset's ground-truth transcription, for extraction evals."""
+    with db.pool().connection() as c:
+        c.execute("SELECT setseed(%s)", (seed,))
+        return c.execute("""SELECT d.id, d.gt_text, e.text, e.used_fallback, e.seconds,
+                                   (SELECT coalesce(jsonb_agg(r->>'kind'), '[]'::jsonb) FROM jsonb_array_elements(e.regions) r) kinds
+                            FROM documents d JOIN extractions e ON e.doc_id=d.id
+                            WHERE d.dataset=%s AND d.gt_text IS NOT NULL ORDER BY random() LIMIT %s""",
+                         (dataset, min(n, 5000))).fetchall()
 
 
 @app.get("/stats")

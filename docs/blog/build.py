@@ -8,8 +8,8 @@ import markdown
 SRC = sys.argv[1]          # docs/blog
 OUT = sys.argv[2]
 parts = ["README.md", "01-system.md", "02-hpa-and-keda.md", "03-queue-design.md", "04-scaledobjects.md",
-         "05-gpus.md", "06-stress-tests.md", "07-what-broke.md", "08-recreate.md"]
-ids = ["summary", "part-1", "part-2", "part-3", "part-4", "part-5", "part-6", "part-7", "part-8"]
+         "05-gpus.md", "06-stress-tests.md", "07-what-broke.md", "08-recreate.md", "09-evaluation.md"]
+ids = ["summary", "part-1", "part-2", "part-3", "part-4", "part-5", "part-6", "part-7", "part-8", "part-9"]
 
 
 def md(text):

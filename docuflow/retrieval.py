@@ -8,7 +8,7 @@ from . import db, llm
 _WORD = re.compile(r"\w{3,}", re.U)
 
 
-def search(query, k=5, dataset=None, kind=None, lang=None, pool_size=30):
+def search(query, k=5, dataset=None, kind=None, lang=None, pool_size=30, doc_id=None):
     qv = llm.embed([query], query=True)[0]
     words = list(dict.fromkeys(w.lower() for w in _WORD.findall(query)))[:24]
     tsq = " | ".join(words) if words else None
@@ -21,6 +21,8 @@ def search(query, k=5, dataset=None, kind=None, lang=None, pool_size=30):
         filt += " AND dataset = %(dataset)s"; args["dataset"] = dataset
     if lang:
         filt += " AND lang = %(lang)s"; args["lang"] = lang
+    if doc_id:                                   # scoped question: "answer from this page"
+        filt += " AND doc_id = %(doc_id)s"; args["doc_id"] = doc_id
     if kind:
         filt += " AND %(kind)s = ANY(kinds)"; args["kind"] = kind
     sql = f"""

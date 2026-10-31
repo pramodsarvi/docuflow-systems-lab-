@@ -98,7 +98,7 @@ part of the autoscaling broke at least once.</p>
   <div class="meta"><span>1× NVIDIA L40S 46 GB</span><span>kind · Kubernetes 1.31</span><span>KEDA 2.15</span><span>vLLM 0.13</span><span>~16,000 pages</span></div>
 </header>
 <div class="wrap">
-  <nav class="toc" aria-label="Parts"><div class="inner"><p>Contents</p><ol><li><a href="#summary"><span class="n">·</span>Summary</a></li><li><a href="#part-1"><span class="n">1</span>The system and why it scales on queues</a></li><li><a href="#part-2"><span class="n">2</span>HPA and KEDA, precisely</a></li><li><a href="#part-3"><span class="n">3</span>The queue: RabbitMQ tokens, Postgres truth</a></li><li><a href="#part-4"><span class="n">4</span>Every ScaledObject, explained</a></li><li><a href="#part-5"><span class="n">5</span>GPUs: one L40S, three vLLM servers</a></li><li><a href="#part-6"><span class="n">6</span>Stress testing: method and results</a></li><li><a href="#part-7"><span class="n">7</span>What broke, and the fixes</a></li><li><a href="#part-8"><span class="n">8</span>Recreate it</a></li></ol></div></nav>
+  <nav class="toc" aria-label="Parts"><div class="inner"><p>Contents</p><ol><li><a href="#summary"><span class="n">·</span>Summary</a></li><li><a href="#part-1"><span class="n">1</span>The system and why it scales on queues</a></li><li><a href="#part-2"><span class="n">2</span>HPA and KEDA, precisely</a></li><li><a href="#part-3"><span class="n">3</span>The queue: RabbitMQ tokens, Postgres truth</a></li><li><a href="#part-4"><span class="n">4</span>Every ScaledObject, explained</a></li><li><a href="#part-5"><span class="n">5</span>GPUs: one L40S, three vLLM servers</a></li><li><a href="#part-6"><span class="n">6</span>Stress testing: method and results</a></li><li><a href="#part-7"><span class="n">7</span>What broke, and the fixes</a></li><li><a href="#part-8"><span class="n">8</span>Recreate it</a></li><li><a href="#part-9"><span class="n">9</span>Evaluation: RAGAS and the layers beneath it</a></li></ol></div></nav>
   <main>
 <section id="summary" class="part"><h2 class="parttitle">Summary</h2>
 <p>docuflow reads scanned documents (printed and handwritten) with a vision model, indexes them in Postgres + pgvector,
@@ -149,6 +149,9 @@ one NVIDIA L40S (46 GB), a kind cluster, and three vLLM servers sharing that GPU
 <li><strong>Scaling the wrong tier does nothing.</strong> KEDA scaled the API to 8 pods under 96 concurrent queries; each pod used
   5 millicores, because the bottleneck was the agent model's batch slots (32 running, 64 waiting). Latency only
   moved when the model server got more capacity.</li>
+<li><strong>Load tests don't measure correctness.</strong> The first stress run had zero errors and 17% correct answers. Layered
+  evals (extraction, retrieval hit@k, RAGAS) located the fault in search tokenisation. After the fixes: retrieval
+  hit@1 99%, RAGAS exact match 0.975, faithfulness 0.975.</li>
 <li><strong>On one GPU, the GPU is the ceiling.</strong> Autoscaling redistributes a fixed budget. The last lever was choosing what
   the budget is for: an <em>ingest mode</em> that pauses queries and gives the whole GPU to page reading.</li>
 </ul>
@@ -1310,9 +1313,11 @@ reach zero 60 s after the last job.</p>
 </code></pre></div>
 <p>Reports land in <code>docs/</code>. For before/after comparisons, change one thing at a time and don't <code>kubectl apply</code> during a
 run (Part 7, failure 10).</p>
-<h3>6. Evaluate answer quality</h3>
-<div class="scroll code"><pre><code class="language-bash">make ragas N=40      # faithfulness, answer relevancy, context precision/recall, judged by the cluster's own models
+<h3>6. Evaluate</h3>
+<div class="scroll code"><pre><code class="language-bash">.venv/bin/python evals/quality_eval.py      # extraction, handwriting, retrieval hit@k (no LLM)
+make ragas N=40 DOCVQA=40                   # RAGAS: synthetic corpus-wide + DocVQA page-scoped, judged in-cluster
 </code></pre></div>
+<p>Part 9 explains each layer and when to run it.</p>
 <h3>7. Choose what the GPU is for</h3>
 <div class="scroll code"><pre><code class="language-bash">make ingest-mode     # pause queries, stop the agent model, page reading gets the whole GPU (~170 pages/min here)
 make query-mode      # agent model back, queries open
@@ -1395,6 +1400,307 @@ make query-mode      # agent model back, queries open
 <tr>
 <td><code>scripts/stress.py</code>, <code>evals/ragas_eval.py</code></td>
 <td>load generator, RAGAS evaluation</td>
+</tr>
+</tbody>
+</table></div></section>
+<section id="part-9" class="part"><p class="partno">Part 9</p><h2 class="parttitle">Evaluation: RAGAS and the layers beneath it</h2><p>The first stress run answered 1,635 queries with <strong>zero errors</strong>, and <strong>only 17% of the answers were right</strong>.
+HTTP status codes and latency percentiles say nothing about whether a RAG system works. This part describes the four
+evaluation layers used here, from the cheapest and most specific to the most end-to-end. Each layer answers a
+different question, and a failure in a lower layer explains a bad score in a higher one.</p>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Tool</th>
+<th>Question it answers</th>
+<th>Needs an LLM</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1. Extraction</td>
+<td><code>evals/quality_eval.py</code></td>
+<td>Did the vision model read the page correctly?</td>
+<td>no</td>
+</tr>
+<tr>
+<td>2. Retrieval</td>
+<td><code>evals/quality_eval.py</code></td>
+<td>Does search return the right page?</td>
+<td>no (embeddings only)</td>
+</tr>
+<tr>
+<td>3. End-to-end RAG</td>
+<td><code>evals/ragas_eval.py</code> (RAGAS)</td>
+<td>Is the agent's answer correct, grounded and relevant?</td>
+<td>yes (judge)</td>
+</tr>
+<tr>
+<td>4. Model choice</td>
+<td><code>evals/vlm_benchmark.py</code></td>
+<td>Is a faster page reader as good as the current one?</td>
+<td>the model under test</td>
+</tr>
+</tbody>
+</table></div>
+<h3>Layer 1: extraction</h3>
+<p>FUNSD, XFUND, IAM and the synthetic forms ship a ground-truth transcription. The eval compares the vision model's
+reading of each indexed page with it:</p>
+<ul>
+<li><strong>Character error rate (CER):</strong> Levenshtein distance divided by reference length, on lower-cased text without
+  punctuation. On forms it also penalises reading order (left column then right, or row by row), so it overstates
+  errors there.</li>
+<li><strong>Token F1:</strong> order-independent word overlap. This is the better content measure on forms.</li>
+<li><strong>Missed (CER ≥ 90%):</strong> the model returned nothing useful for the page.</li>
+<li><strong>Handwriting label recall:</strong> IAM lines are all handwritten, so the share of regions labelled <code>handwritten</code> is the
+  recall of the printed/handwritten classifier.</li>
+</ul>
+<p>Pages indexed from fallback text (Part 7, failures 11–12) are excluded from the scores and counted separately.</p>
+<p>Baseline on the full knowledge base (Qwen2.5-VL-3B, 500 pages per dataset):</p>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>dataset</th>
+<th>CER median</th>
+<th>token F1</th>
+<th>near-perfect (CER &lt; 5%)</th>
+<th>missed</th>
+<th>labelled handwritten</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IAM (handwritten lines)</td>
+<td><strong>0.0%</strong></td>
+<td>0.881</td>
+<td>73%</td>
+<td><strong>4.0%</strong></td>
+<td><strong>67%</strong></td>
+</tr>
+<tr>
+<td>FUNSD (scanned forms)</td>
+<td>25.8%</td>
+<td>0.825</td>
+<td>4%</td>
+<td>0.0%</td>
+<td>1%</td>
+</tr>
+<tr>
+<td>XFUND (7-language forms)</td>
+<td>37.0%</td>
+<td>0.774</td>
+<td>1%</td>
+<td>0.4%</td>
+<td>1%</td>
+</tr>
+<tr>
+<td>synthetic forms</td>
+<td>0.0%</td>
+<td>0.999</td>
+<td>100%</td>
+<td>0.0%</td>
+<td>0%</td>
+</tr>
+</tbody>
+</table></div>
+<p>The model <strong>reads</strong> handwriting well: the median IAM line is perfect. It <strong>classifies</strong> handwriting poorly. A third
+of IAM lines and almost all handwritten entries on forms are labelled <code>printed</code>, so filtering search by
+<code>kind=handwritten</code> misses most handwriting. The 4% of missed lines are cases where the model returned only <code>...</code>.</p>
+<h3>Layer 2: retrieval</h3>
+<p>Retrieval is measured without the agent. For questions that name a synthetic document number ("Which city is listed
+on PUR-1106?"), does a corpus-wide hybrid search return that page first (hit@1) or in the top 5 (hit@5)?</p>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>when</th>
+<th>corpus</th>
+<th>hit@1</th>
+<th>hit@5</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>before the tokenisation fix</td>
+<td>~1,600 pages</td>
+<td>(answer accuracy 17%)</td>
+<td></td>
+</tr>
+<tr>
+<td>after the fix</td>
+<td>11,560 pages</td>
+<td><strong>99.0%</strong></td>
+<td><strong>100%</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p>Search latency was 90 ms p50 and 108 ms p95 at 11,560 pages, with 1024-dimension vectors under HNSW plus a GIN
+full-text index.</p>
+<p>The bug behind the 17% (Part 6): Postgres read "PUR-1106" as <code>pur</code> plus the negative number <code>-1106</code>, so the document
+number never matched, and the full-text branch returned 30 arbitrary rows. A fusion step that merges vector and
+keyword results can't recover from a branch that returns noise. Measuring retrieval on its own is what pinned the
+problem on search rather than on the model.</p>
+<h3>Layer 3: RAGAS</h3>
+<h3>What it measures</h3>
+<p>RAGAS scores a question, the answer, the contexts the system retrieved and, for some metrics, a reference answer,
+using an LLM as judge:</p>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>metric</th>
+<th>question it answers</th>
+<th>how</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>faithfulness</strong></td>
+<td>Is every claim in the answer supported by the retrieved contexts? (hallucination)</td>
+<td>the judge splits the answer into claims and checks each against the contexts</td>
+</tr>
+<tr>
+<td><strong>answer relevancy</strong></td>
+<td>Does the answer address the question?</td>
+<td>the judge writes questions the answer would fit; their embeddings are compared with the real question</td>
+</tr>
+<tr>
+<td><strong>context precision</strong></td>
+<td>Are the useful contexts ranked above the useless ones?</td>
+<td>the judge marks each context useful or not for the reference answer, weighted by rank</td>
+</tr>
+<tr>
+<td><strong>context recall</strong></td>
+<td>Do the contexts contain what the reference answer needs?</td>
+<td>the judge checks each reference statement against the contexts</td>
+</tr>
+</tbody>
+</table></div>
+<p>Two simpler metrics sit alongside them: <strong>exact match</strong> (the reference value, such as the signer's name, appears in
+the answer) and <strong>cited the source page</strong>.</p>
+<h3>How it's set up here</h3>
+<ul>
+<li><strong>Questions go through the real agent</strong> (<code>POST /query</code>), so the eval runs exactly what users run: the same
+  retrieval, prompts and step limit.</li>
+<li><strong>Contexts are taken from the agent's trace:</strong> every search result, page and image re-read it actually observed.
+  The context metrics therefore grade the agent's own retrieval, not a separate retriever written for the eval.</li>
+<li><strong>The judge is the cluster's own agent model</strong> (<code>standard-model</code>, Qwen3-4B on vLLM), and embeddings come from
+  <code>embed-model</code>. No external API is called, and nothing leaves the cluster.</li>
+<li><strong>Two question sets:</strong></li>
+<li><em>Synthetic forms, corpus-wide:</em> "Who signed document INV-1005?" against the whole knowledge base, with exact
+    references from the generated fields.</li>
+<li><em>DocVQA, page-scoped:</em> the dataset's own human-written questions ("What is the date on this letter?"). These are
+    page-specific and ambiguous across 14,600 pages, so each is asked with a document scope (<code>doc_id</code> on
+    <code>/query</code>). That measures reading and answering from the right page, and doesn't penalise questions that are
+    unanswerable across the corpus.</li>
+<li><strong>Pinned dependencies.</strong> The newest RAGAS release fails at import with the current <code>langchain_community</code>. The
+  working set is pinned in <code>requirements-eval.txt</code> (RAGAS 0.2.15, LangChain 0.3) and kept in its own virtualenv,
+  away from the app.</li>
+</ul>
+<div class="scroll code"><pre><code class="language-bash">make ragas N=40                                             # synthetic, corpus-wide
+.venv-eval/bin/python evals/ragas_eval.py -n 40 --docvqa 40 # + DocVQA, page-scoped; per-set table in the report
+</code></pre></div>
+<h3>Results so far (40 synthetic questions)</h3>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>metric</th>
+<th>after the retrieval fix</th>
+<th>after the agent changes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>exact match</td>
+<td>0.900</td>
+<td><strong>0.975</strong></td>
+</tr>
+<tr>
+<td>faithfulness</td>
+<td>0.956</td>
+<td><strong>0.975</strong></td>
+</tr>
+<tr>
+<td>answer relevancy</td>
+<td>0.450</td>
+<td><strong>0.808</strong></td>
+</tr>
+<tr>
+<td>context precision</td>
+<td>0.900</td>
+<td><strong>0.975</strong></td>
+</tr>
+<tr>
+<td>context recall</td>
+<td>0.900</td>
+<td><strong>0.975</strong></td>
+</tr>
+<tr>
+<td>mean agent steps / latency</td>
+<td>2.0 / 3.3 s</td>
+<td>2.2 / 3.5 s</td>
+</tr>
+</tbody>
+</table></div>
+<p>The agent changes between the two columns came straight from reading the low-scoring rows:</p>
+<ul>
+<li><strong>Answer relevancy 0.45 was mostly a format problem.</strong> Correct but terse answers such as "Fatima Berg" make the
+  judge generate "Who is Fatima Berg?", which embeds far from "Who signed INV-1570?". The agent now answers in one
+  sentence that restates the subject ("INV-1570 was signed by Fatima Berg."), which is also clearer for a person
+  reading it.</li>
+<li><strong>All misses were "not found" after a single search</strong> for a page that was indexed. A guard now makes the agent try
+  one rewritten search, for example just the document number, before it may declare something missing.</li>
+</ul>
+<h3>Caveats</h3>
+<ul>
+<li><strong>The judge is a 4B model.</strong> Its scores are noisier than a frontier judge's would be. Compare runs made with the
+  same judge; don't compare absolute values with numbers from other setups.</li>
+<li><strong>The judge is the agent model itself,</strong> so it can share the agent's blind spots. Exact match is the guard
+  against that: it needs no judge.</li>
+<li><strong>The synthetic set is easy by design.</strong> Its value is exact references and corpus-wide retrieval at scale. The
+  DocVQA set covers real documents with human questions.</li>
+</ul>
+<h3>Layer 4: choosing a faster page reader</h3>
+<p>The page reader is the throughput bottleneck (Part 5): memory bandwidth on the GPU is 80–99% used. An FP8 version of
+the same model moves about half the bytes per token, so it could be substantially faster. It could also read worse.
+<code>evals/vlm_benchmark.py</code> decides that with the same ground-truth pages, the production prompt and schema, and a fixed
+concurrency, and reports per dataset:
+- pages per minute
+- CER and token F1
+- missed lines
+- handwriting label recall
+- p50 read time</p>
+<p>The method matters:
+- <strong>Quality</strong> can be compared at any time, because it doesn't depend on load.
+- <strong>Speed</strong> must be compared with each model alone on an otherwise idle GPU. A speed test next to a saturated
+  ingest measures contention, not the model.
+- A replacement is accepted only if quality holds on every dataset, IAM handwriting in particular.</p>
+<h3>When to run what</h3>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>change</th>
+<th>run</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>search, chunking, tokenisation</td>
+<td>layer 2, then RAGAS</td>
+</tr>
+<tr>
+<td>agent prompt or loop</td>
+<td>RAGAS (both sets)</td>
+</tr>
+<tr>
+<td>page-reading model, prompt or output limit</td>
+<td>layer 1 + layer 4, then RAGAS on DocVQA</td>
+</tr>
+<tr>
+<td>embedding model</td>
+<td>layer 2 + RAGAS (and re-embed everything first)</td>
+</tr>
+<tr>
+<td>infrastructure only (scaling, KEDA, nodes)</td>
+<td>stress test; evals unchanged unless outputs changed</td>
 </tr>
 </tbody>
 </table></div></section>

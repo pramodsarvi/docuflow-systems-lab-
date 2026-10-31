@@ -85,7 +85,11 @@ memory. The report covers ingest throughput, query latency during ingest (p50/p9
 
 ## Evaluation (RAGAS)
 
-`make ragas N=40` asks questions with known answers through the live agent (`POST /query`). It then scores them with
+`make quality-eval` scores what is indexed without any LLM: extraction accuracy and handwriting against ground truth,
+and retrieval hit@1/hit@5 across the whole knowledge base (latest: [`evals/quality-report.md`](evals/quality-report.md);
+hit@1 99.0% on 11,560 pages).
+
+`make ragas N=40 DOCVQA=40` asks questions with known answers through the live agent (`POST /query`). It then scores them with
 RAGAS, judged by the cluster's own vLLM servers (`standard-model` as judge, `embed-model` for embeddings), so no
 external API is involved. Contexts are what the agent actually observed in its trace, so the context metrics grade its
 real retrieval. The latest report is in [`evals/ragas-report.md`](evals/ragas-report.md).

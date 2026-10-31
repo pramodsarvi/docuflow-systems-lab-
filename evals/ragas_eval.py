@@ -55,13 +55,26 @@ def synthetic_items(api, headers, n, seed):
                             f"The amount on {f['Number']} is {f['Amount']}.")
         else:
             q, gold, ref = f"Which city is listed on {f['Number']}?", f["City"], f"The city listed on {f['Number']} is {f['City']}."
-        items.append(dict(question=q, gold=[gold], reference=ref, doc_id=f"synthetic/gen/{i}", source="synthetic"))
+        items.append(dict(question=q, gold=[gold], reference=ref, doc_id=f"synthetic/gen/{i}", source="synthetic (corpus-wide)"))
     return items
+
+
+def docvqa_items(api, headers, n, seed):
+    """DocVQA's own human-written question/answer pairs. They are page-specific ("What is the date?"), so each is asked
+    with a document scope: this measures reading + answering from the right page, not corpus-wide retrieval."""
+    if n <= 0:
+        return []
+    qa = httpx.get(f"{api}/eval/qa", params={"dataset": "docvqa", "n": n, "seed": seed / 100}, headers=headers, timeout=60).json()
+    return [dict(question=q["question"], gold=q["answers"], reference=f"The answer is {q['answers'][0]}.", doc_id=q["doc_id"],
+                 source="docvqa (page-scoped)", scope=q["doc_id"]) for q in qa]
 
 
 def ask(api, headers, item, max_steps):
     t0 = time.time()
-    r = httpx.post(f"{api}/query", json={"question": item["question"], "max_steps": max_steps}, headers=headers, timeout=600)
+    body = {"question": item["question"], "max_steps": max_steps}
+    if item.get("scope"):
+        body["doc_id"] = item["scope"]
+    r = httpx.post(f"{api}/query", json=body, headers=headers, timeout=600)
     r.raise_for_status()
     j = r.json()
     contexts = [t["observation"] for t in j["trace"]
@@ -81,7 +94,8 @@ def main():
     ap.add_argument("--llm-model", default="standard-model")
     ap.add_argument("--embed-url", default="http://127.0.0.1:18000/v1")
     ap.add_argument("--embed-model", default="embed-model")
-    ap.add_argument("-n", type=int, default=40)
+    ap.add_argument("-n", type=int, default=40, help="synthetic questions (corpus-wide)")
+    ap.add_argument("--docvqa", type=int, default=0, help="DocVQA questions (page-scoped)")
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--max-steps", type=int, default=4)
     ap.add_argument("--concurrency", type=int, default=8)
@@ -90,7 +104,7 @@ def main():
     headers = {"x-api-key": os.environ.get("DOCUFLOW_API_KEY", "")}
     api = a.api.rstrip("/")
 
-    items = synthetic_items(api, headers, a.n, a.seed)
+    items = synthetic_items(api, headers, a.n, a.seed) + docvqa_items(api, headers, a.docvqa, a.seed)
     if not items:
         sys.exit("no indexed pages with known answers: ingest some synthetic pages first")
     print(f"asking {len(items)} questions through the agent ...", flush=True)
@@ -126,6 +140,17 @@ def report(a, rows):
         return (statistics.mean(xs), len(xs)) if xs else (float("nan"), 0)
     names = {"faithfulness": "faithfulness", "answer_relevancy": "answer relevancy",
              "llm_context_precision_with_reference": "context precision", "context_recall": "context recall"}
+    def by_source():
+        out = ["", "## By question set", "", "| set | n | faithfulness | answer relevancy | context precision | context recall | exact match |",
+               "|---|---|---|---|---|---|---|"]
+        for src in sorted({r["source"] for r in rows}):
+            rs = [r for r in rows if r["source"] == src]
+            ms = []
+            for m in METRIC_NAMES:
+                xs = [r["scores"][m] for r in rs if r["scores"].get(m) is not None]
+                ms.append(f"{statistics.mean(xs):.3f}" if xs else "-")
+            out.append(f"| {src} | {len(rs)} | " + " | ".join(ms) + f" | {sum(r['exact_match'] for r in rs) / len(rs):.3f} |")
+        return out
     lines = [f"# docuflow RAGAS evaluation ({time.strftime('%Y-%m-%d %H:%M')})", "",
              f"{len(rows)} questions through the live agent (`POST /query`, max {a.max_steps} steps). "
              f"Judge: `{a.llm_model}`, embeddings: `{a.embed_model}` (the cluster's own vLLM servers).", "",
@@ -136,6 +161,7 @@ def report(a, rows):
     lines += [f"| exact match (reference value in answer) | {sum(r['exact_match'] for r in rows) / len(rows):.3f} | {len(rows)} |",
               f"| cited the source page | {sum(r['cited_source'] for r in rows) / len(rows):.3f} | {len(rows)} |",
               f"| mean agent steps / latency | {statistics.mean(r['steps'] for r in rows):.1f} / {statistics.mean(r['seconds'] for r in rows):.1f}s | |",
+              *by_source(),
               "", "## Per question", "",
               "| ok | question | reference | answer | faith | relev | c-prec | c-rec |", "|---|---|---|---|---|---|---|---|"]
     f = lambda x: "-" if x is None else f"{x:.2f}"

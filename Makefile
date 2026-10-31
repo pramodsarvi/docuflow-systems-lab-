@@ -79,7 +79,10 @@ ragas:            ## RAGAS eval (faithfulness, relevancy, context precision/reca
 	test -x .venv-eval/bin/python || (python3 -m venv .venv-eval && .venv-eval/bin/pip install -q -r requirements-eval.txt)
 	kubectl -n docuflow port-forward svc/model-llm 18002:8000 >/dev/null & pf1=$$!; \
 	kubectl -n docuflow port-forward svc/model-embed 18000:8000 >/dev/null & pf2=$$!; sleep 3; \
-	.venv-eval/bin/python evals/ragas_eval.py --api $(API) -n $(or $(N),40); rc=$$?; kill $$pf1 $$pf2; exit $$rc
+	.venv-eval/bin/python evals/ragas_eval.py --api $(API) -n $(or $(N),40) --docvqa $(or $(DOCVQA),40); rc=$$?; kill $$pf1 $$pf2; exit $$rc
+
+quality-eval:     ## extraction, handwriting and retrieval quality of what is indexed (no LLM) -> evals/quality-report.md
+	$(PY) evals/quality_eval.py --api $(API)
 
 ingest-mode:      ## pause queries, stop the agent model, give the whole GPU to page reading
 	scripts/mode.sh ingest
@@ -125,4 +128,4 @@ prod-deploy:      ## REGISTRY=... TAG=... HOST=docuflow.example.com
 	kubectl -n docuflow rollout status deploy/api --timeout=600s
 
 .PHONY: help setup db stack models up lint test ingest-all status ask eval cluster-up cluster-down image deploy render \
-        smoke stress ragas ingest-mode query-mode k8s-status grafana k8s-key undeploy prod-image prod-secrets prod-deploy
+        smoke stress ragas quality-eval ingest-mode query-mode k8s-status grafana k8s-key undeploy prod-image prod-secrets prod-deploy

@@ -1,0 +1,33 @@
+ingest 2000 pages of synthetic (mode=vlm) + query clients [48, 96] (step 300s)
+t=  15s [ingest+queries c=48] indexed=  13/2000 queues[embed=0 io=95 vlm=1195] replicas[api=2/3 m-embed=1/1 m-llm=1/1 m-vlm=1/2 w-embed=1/1 w-io=3/3 w-vlm=1/4] pending=3 inflight=77 queries=0 p50(60s)=nans gpu=100.0% 26.9GB
+t=  31s [ingest+queries c=48] indexed=  17/2000 queues[embed=0 io=89 vlm=1304] replicas[api=5/5 m-embed=1/1 m-llm=1/1 m-vlm=1/2 w-embed=1/1 w-io=3/3 w-vlm=7/7] pending=0 inflight=96 queries=45 p50(60s)=22.8s gpu=99.0% 26.9GB
+t=  47s [ingest+queries c=48] indexed=  25/2000 queues[embed=0 io=80 vlm=1474] replicas[api=7/8 m-embed=1/1 m-llm=1/1 m-vlm=1/2 w-embed=1/1 w-io=3/3 w-vlm=10/10] pending=1 inflight=96 queries=54 p50(60s)=23.4s gpu=100.0% 27.4GB
+t=  63s [ingest+queries c=48] indexed=  38/2000 queues[embed=0 io=72 vlm=1618] replicas[api=8/8 m-embed=1/1 m-llm=1/1 m-vlm=1/2 w-embed=1/1 w-io=3/3 w-vlm=13/13] pending=0 inflight=96 queries=90 p50(60s)=24.6s gpu=99.0% 36.8GB
+t=  78s [ingest+queries c=48] indexed=  54/2000 queues[embed=0 io=65 vlm=1748] replicas[api=8/8 m-embed=1/1 m-llm=1/1 m-vlm=1/2 w-embed=1/1 w-io=3/3 w-vlm=16/16] pending=0 inflight=96 queries=107 p50(60s)=26.7s gpu=99.0% 36.8GB
+t=  94s [ingest+queries c=48] indexed=  74/2000 queues[embed=0 io=59 vlm=1849] replicas[api=8/8 m-embed=1/1 m-llm=1/1 m-vlm=2/2 w-embed=1/1 w-io=3/3 w-vlm=19/19] pending=0 inflight=96 queries=135 p50(60s)=28.2s gpu=100.0% 38.1GB
+t= 110s [ingest+queries c=48] indexed=  92/2000 queues[embed=0 io=51 vlm=1987] replicas[api=8/8 m-embed=1/1 m-llm=1/1 m-vlm=2/2 w-embed=1/1 w-io=3/3 w-vlm=22/22] pending=0 inflight=96 queries=162 p50(60s)=29.5s gpu=100.0% 38.4GB
+t= 126s [ingest+queries c=48] indexed= 113/2000 queues[embed=0 io=44 vlm=2105] replicas[api=8/8 m-embed=1/1 m-llm=1/1 m-vlm=2/2 w-embed=1/1 w-io=3/3 w-vlm=24/24] pending=0 inflight=96 queries=182 p50(60s)=29.8s gpu=100.0% 38.4GB
+t= 141s [ingest+queries c=48] indexed= 136/2000 queues[embed=1 io=38 vlm=2202] replicas[api=8/8 m-embed=1/1 m-llm=1/1 m-vlm=2/2 w-embed=1/1 w-io=3/3 w-vlm=24/24] pending=0 inflight=96 queries=188 p50(60s)=30.3s gpu=100.0% 38.4GB
+t= 157s [ingest+queries c=48] indexed= 156/2000 queues[embed=1 io=32 vlm=2299] replicas[api=8/8 m-embed=1/1 m-llm=1/1 m-vlm=2/2 w-embed=1/1 w-io=3/3 w-vlm=24/24] pending=0 inflight=96 queries=221 p50(60s)=39.0s gpu=100.0% 38.4GB
+t= 173s [ingest+queries c=48] indexed= 178/2000 queues[embed=1 io=26 vlm=2395] replicas[api=8/8 m-embed=1/1 m-llm=1/1 m-vlm=2/2 w-embed=1/1 w-io=3/3 w-vlm=24/24] pending=0 inflight=96 queries=228 p50(60s)=39.1s gpu=100.0% 38.4GB
+t= 190s [ingest+queries c=48] indexed= 200/2000 queues[embed=0 io=20 vlm=2497] replicas[api=8/8 m-embed=1/1 m-llm=1/1 m-vlm=2/2 w-embed=1/1 w-io=3/3 w-vlm=24/24] pending=0 inflight=96 queries=255 p50(60s)=38.9s gpu=100.0% 38.4GB
+t= 205s [ingest+queries c=48] indexed= 222/2000 queues[embed=1 io=14 vlm=2594] replicas[api=8/8 m-embed=1/1 m-llm=1/1 m-vlm=2/2 w-embed=1/1 w-io=3/3 w-vlm=24/24] pending=0 inflight=96 queries=272 p50(60s)=39.1s gpu=100.0% 38.4GB
+t= 221s [ingest+queries c=48] indexed= 242/2000 queues[embed=2 io=8 vlm=2693] replicas[api=8/8 m-embed=1/1 m-llm=1/1 m-vlm=2/2 w-embed=1/1 w-io=3/3 w-vlm=24/24] pending=0 inflight=96 queries=282 p50(60s)=39.1s gpu=100.0% 38.4GB
+t= 237s [ingest+queries c=48] indexed= 266/2000 queues[embed=0 io=2 vlm=2793] replicas[api=8/8 m-embed=1/1 m-llm=1/1 m-vlm=2/2 w-embed=1/1 w-io=3/3 w-vlm=24/24] pending=0 inflight=96 queries=313 p50(60s)=39.5s gpu=100.0% 38.4GB
+t= 253s [ingest+queries c=48] indexed= 286/2000 queues[embed=0 io=0 vlm=2872] replicas[api=8/8 m-embed=1/1 m-llm=1/1 m-vlm=2/2 w-embed=1/1 w-io=3/3 w-vlm=24/24] pending=0 inflight=96 queries=321 p50(60s)=39.2s gpu=100.0% 38.4GB
+t= 268s [ingest+queries c=48] indexed= 310/2000 queues[embed=0 io=0 vlm=2849] replicas[api=8/8 m-embed=1/1 m-llm=1/1 m-vlm=2/2 w-embed=1/1 w-io=3/3 w-vlm=24/24] pending=0 inflight=96 queries=347 p50(60s)=38.2s gpu=100.0% 38.4GB
+t= 284s [ingest+queries c=48] indexed= 333/2000 queues[embed=0 io=0 vlm=2826] replicas[api=8/8 m-embed=1/1 m-llm=1/1 m-vlm=2/2 w-embed=1/1 w-io=3/3 w-vlm=24/24] pending=0 inflight=96 queries=361 p50(60s)=38.3s gpu=100.0% 38.4GB
+t= 300s [ingest+queries c=96] indexed= 356/2000 queues[embed=0 io=0 vlm=2802] replicas[api=8/8 m-embed=1/1 m-llm=1/1 m-vlm=2/2 w-embed=1/1 w-io=3/3 w-vlm=24/24] pending=0 inflight=101 queries=377 p50(60s)=39.0s gpu=100.0% 38.4GB
+t= 316s [ingest+queries c=96] indexed= 380/2000 queues[embed=0 io=0 vlm=2779] replicas[api=8/8 m-embed=1/1 m-llm=1/1 m-vlm=2/2 w-embed=1/1 w-io=0/0 w-vlm=24/24] pending=0 inflight=144 queries=400 p50(60s)=40.4s gpu=100.0% 38.4GB
+t= 332s [ingest+queries c=96] indexed= 403/2000 queues[embed=0 io=0 vlm=2756] replicas[api=8/8 m-embed=1/1 m-llm=1/1 m-vlm=2/2 w-embed=1/1 w-io=0/0 w-vlm=24/24] pending=0 inflight=144 queries=406 p50(60s)=40.9s gpu=100.0% 38.4GB
+t= 348s [ingest+queries c=96] indexed= 426/2000 queues[embed=0 io=0 vlm=2733] replicas[api=8/8 m-embed=1/1 m-llm=1/1 m-vlm=2/2 w-embed=1/1 w-io=0/0 w-vlm=24/24] pending=0 inflight=144 queries=416 p50(60s)=49.3s gpu=100.0% 38.4GB
+t= 363s [ingest+queries c=96] indexed= 448/2000 queues[embed=0 io=0 vlm=2709] replicas[api=8/8 m-embed=1/1 m-llm=1/1 m-vlm=2/2 w-embed=1/1 w-io=0/0 w-vlm=24/24] pending=0 inflight=144 queries=472 p50(60s)=54.6s gpu=100.0% 38.4GB
+t= 379s [ingest+queries c=96] indexed= 471/2000 queues[embed=0 io=0 vlm=2688] replicas[api=8/8 m-embed=1/1 m-llm=1/1 m-vlm=2/2 w-embed=1/1 w-io=0/0 w-vlm=24/24] pending=0 inflight=144 queries=494 p50(60s)=61.1s gpu=100.0% 38.4GB
+Traceback (most recent call last):
+  File "/root/docuflow-systems-lab-/scripts/stress.py", line 265, in <module>
+    main()
+  File "/root/docuflow-systems-lab-/scripts/stress.py", line 168, in main
+    time.sleep(a.sample)
+KeyboardInterrupt
+
+[exited with code 1]

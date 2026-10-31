@@ -31,6 +31,12 @@ LEASE_SECONDS = int(os.environ.get("LEASE_SECONDS", 900))
 MAX_ATTEMPTS = int(os.environ.get("MAX_ATTEMPTS", 3))
 MAX_IMAGE_SIDE = int(os.environ.get("MAX_IMAGE_SIDE", 1280))
 AGENT_MAX_STEPS = int(os.environ.get("AGENT_MAX_STEPS", 6))
+AGENT_MAX_TOKENS = int(os.environ.get("AGENT_MAX_TOKENS", 350))           # per agent step (one JSON action)
+AGENT_PRESEARCH = os.environ.get("AGENT_PRESEARCH", "1") == "1"          # search on the question before the first LLM call
+# Ingest backs off under query pressure: while at least QUERY_PRESSURE_INFLIGHT queries are in flight, at most
+# VLM_LIMIT_UNDER_QUERY_LOAD page reads run at once, leaving GPU time for the agent model. 0 disables.
+QUERY_PRESSURE_INFLIGHT = int(os.environ.get("QUERY_PRESSURE_INFLIGHT", 0))
+VLM_LIMIT_UNDER_QUERY_LOAD = int(os.environ.get("VLM_LIMIT_UNDER_QUERY_LOAD", 8))
 WORKER_METRICS_PORT = int(os.environ.get("WORKER_METRICS_PORT", 9100))   # 0 disables the worker /health + /metrics server
 # Retention (`python -m docuflow gc`, run by a CronJob on Kubernetes)
 GC_DONE_JOBS_DAYS = int(os.environ.get("GC_DONE_JOBS_DAYS", 7))

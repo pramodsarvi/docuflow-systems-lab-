@@ -1,0 +1,25 @@
+# The agent model is the query-latency bottleneck (stress test: 32 running + 64 waiting on one replica). KEDA scales it on
+# vLLM's own queue; each replica takes a whole GPU.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata: {name: model-llm}
+spec:
+  scaleTargetRef: {name: model-llm}
+  minReplicaCount: 1
+  maxReplicaCount: 4
+  pollingInterval: 15
+  cooldownPeriod: 600
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp: {stabilizationWindowSeconds: 30, policies: [{type: Pods, value: 1, periodSeconds: 90}]}
+        scaleDown: {stabilizationWindowSeconds: 600, policies: [{type: Pods, value: 1, periodSeconds: 300}]}
+  triggers:
+    - type: prometheus
+      name: agent-queue
+      metadata:
+        serverAddress: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
+        query: >-
+          sum(vllm:num_requests_running{namespace="docuflow", pod=~"model-llm-.*"})
+          + sum(vllm:num_requests_waiting{namespace="docuflow", pod=~"model-llm-.*"}) or vector(0)
+        threshold: "96"            # ~75% of --max-num-seqs 128 per whole-GPU replica

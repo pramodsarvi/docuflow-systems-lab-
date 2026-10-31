@@ -74,3 +74,49 @@ def test_migration_rebuilds_old_tsv_column():
         c.execute("INSERT INTO documents (id, dataset) VALUES ('m/1', 'x')")
         c.execute("INSERT INTO chunks (doc_id, dataset, text) VALUES ('m/1', 'x', 'Number: PUR-1106')")
         assert c.execute("SELECT count(*) n FROM chunks WHERE tsv @@ to_tsquery('simple', '1106')").fetchone()["n"] == 1
+
+
+def test_agent_presearch_saves_a_round_trip_and_traces(monkeypatch):
+    """With presearch the first LLM call already sees search results; spans are exported in OpenInference shape."""
+    import json as _json
+
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
+    from docuflow import agent, llm, retrieval, tracing
+    exp = InMemorySpanExporter()
+    provider = TracerProvider(); provider.add_span_processor(SimpleSpanProcessor(exp))
+    monkeypatch.setattr(tracing, "_tracer", provider.get_tracer("t")); monkeypatch.setattr(tracing, "_enabled", True)
+    monkeypatch.setattr(retrieval, "search", lambda q, **kw: [{"doc_id": "s/1", "dataset": "synthetic", "lang": "en",
+                                                                 "kinds": ["printed"], "text": "Signed by: Maria Lopez"}])
+    calls = []
+
+    def fake_chat(msgs, **kw):
+        calls.append(msgs[-1]["content"])
+        return _json.dumps({"thought": "found", "action": "answer", "answer": "S-1 was signed by Maria Lopez.",
+                            "citations": ["s/1"]}), {"output_tokens": 12}
+    monkeypatch.setattr(llm, "chat", fake_chat)
+    r = agent.run("Who signed S-1?")
+    assert len(calls) == 1 and "Maria Lopez" in calls[0]          # one LLM call, evidence already in the prompt
+    assert r["citations"] == ["s/1"] and r["trace_id"]
+    spans = {s.name: s for s in exp.get_finished_spans()}
+    assert spans["docuflow.agent"].attributes["openinference.span.kind"] == "AGENT"
+    assert spans["docuflow.agent"].attributes["output.value"] == "S-1 was signed by Maria Lopez."
+    assert spans["tool.search"].attributes["openinference.span.kind"] == "TOOL"
+    assert spans["llm.step.0"].attributes["docuflow.action"] == "answer"
+    assert format(spans["llm.step.0"].context.trace_id, "032x") == r["trace_id"]
+
+
+def test_ingest_backs_off_under_query_pressure(monkeypatch):
+    monkeypatch.setattr(config, "QUERY_PRESSURE_INFLIGHT", 2); monkeypatch.setattr(config, "VLM_LIMIT_UNDER_QUERY_LOAD", 1)
+    monkeypatch.setattr(config, "YIELD_TO_QUERIES", False); monkeypatch.setattr(config, "PER_DATASET_CAP", 10)
+    db.control_set("lane_limits", {"vlm": 5})
+    for _ in range(3):
+        jobs.enqueue("extract", "a", {})
+    with db.pool().connection() as c:
+        c.execute("INSERT INTO inflight (id) VALUES ('q1'), ('q2')")
+    assert jobs.claim("vlm", "w1") and jobs.claim("vlm", "w2") is None    # limited to 1 while 2 queries are in flight
+    with db.pool().connection() as c:
+        c.execute("DELETE FROM inflight")
+    assert jobs.claim("vlm", "w2")                                         # pressure gone: back to the lane limit

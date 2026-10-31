@@ -16,22 +16,25 @@ kind: Deployment
 metadata: {name: model-llm}
 spec:
   strategy: {type: RollingUpdate, rollingUpdate: {maxUnavailable: 0, maxSurge: 1}}
+  replicas: null           # KEDA owns it (llm-autoscaling.yaml)
   template:
     spec:
       containers:
         - name: vllm
           args: ["--model", "Qwen/Qwen3-4B-Instruct-2507", "--served-model-name", "standard-model", "--host", "0.0.0.0", "--port", "8000",
-                 "--gpu-memory-utilization", "0.90", "--max-model-len", "32768", "--max-num-seqs", "128"]
+                 "--gpu-memory-utilization", "0.90", "--max-model-len", "32768", "--max-num-seqs", "128",
+                 "--enable-prefix-caching"]
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata: {name: model-embed}
 spec:
   strategy: {type: RollingUpdate, rollingUpdate: {maxUnavailable: 0, maxSurge: 1}}
+  replicas: null           # KEDA owns it
   template:
     spec:
       containers:
         - name: vllm
           args: ["--model", "Qwen/Qwen3-Embedding-0.6B", "--served-model-name", "embed-model", "--host", "0.0.0.0", "--port", "8000",
-                 "--gpu-memory-utilization", "0.90", "--runner", "pooling", "--max-model-len", "8192",
+                 "--gpu-memory-utilization", "0.90", "--runner", "pooling", "--max-model-len", "2048",
                  "--max-num-seqs", "256"]

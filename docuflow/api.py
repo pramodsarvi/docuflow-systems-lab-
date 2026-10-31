@@ -105,8 +105,22 @@ def ingest(r: IngestReq):
         raise HTTPException(400, str(e))
 
 
+class QueriesReq(BaseModel):
+    paused: bool
+
+
+@app.post("/workloads/queries")
+def pause_queries(r: QueriesReq):
+    """Ingest-priority mode: refuse interactive queries (503) so the GPU can go to page reading."""
+    db.control_set("queries_paused", r.paused)
+    return {"queries_paused": r.paused}
+
+
 @app.post("/query")
 async def query(r: QueryReq):
+    if db.control_get("queries_paused", False):
+        raise HTTPException(503, "queries are paused (ingest-priority mode); resume with POST /workloads/queries {\"paused\": false}",
+                            headers={"Retry-After": "300"})
     # Runs in a thread so queries are served while workers keep ingesting.
     return await run_in_threadpool(agent.run, r.question, r.dataset, r.max_steps, r.lang)
 
@@ -118,7 +132,7 @@ def search(q: str, k: int = 5, dataset: Optional[str] = None, kind: Optional[str
 
 @app.get("/workloads")
 def workloads():
-    return {**jobs.snapshot(), "progress": service.progress()}
+    return {**jobs.snapshot(), "progress": service.progress(), "queries_paused": bool(db.control_get("queries_paused", False))}
 
 
 @app.post("/workloads/lane")
@@ -192,7 +206,7 @@ async function tick(){const r=await fetch('/workloads',{headers:H()});if(r.statu
 for(const [l,v] of Object.entries(j.lanes))h+=`<tr><td>${l}<td>${j.limits[l]}<td>${v.queued}<td>${v.running}<td>${v.done}<td>${v.dead}<td>${v.done_5m||0}<td>${v.avg_seconds||''}</tr>`;
 h+='</table><b>documents</b><table><tr><th>dataset<th>fetched<th>extracted<th>indexed<th>total</tr>';
 for(const p of j.progress)h+=`<tr><td>${p.dataset}<td>${p.fetched}<td>${p.extracted}<td>${p.indexed}<td>${p.total}</tr>`;
-h+=`</table>queries in flight: ${j.queries_in_flight} &nbsp; paused: ${JSON.stringify(j.paused)}`;document.getElementById('w').innerHTML=h}
+h+=`</table>queries in flight: ${j.queries_in_flight} &nbsp; paused: ${JSON.stringify(j.paused)}${j.queries_paused?' &nbsp; <b>queries paused (ingest priority)</b>':''}`;document.getElementById('w').innerHTML=h}
 async function ask(){const a=document.getElementById('a');a.textContent='thinking…';const r=await fetch('/query',{method:'POST',headers:{...H(),'content-type':'application/json'},body:JSON.stringify({question:document.getElementById('q').value})});const j=await r.json();
 a.textContent=j.answer+'\\n\\ncitations: '+(j.citations||[]).join(', ')+'\\n('+j.steps+' steps, '+j.seconds+'s, during_ingest='+j.during_ingest+')\\n\\n'+j.trace.map(t=>`${t.step}. ${t.action}: ${t.thought||''}`).join('\\n')}
 tick();setInterval(tick,2000)</script>"""

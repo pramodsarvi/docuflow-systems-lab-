@@ -1,5 +1,7 @@
 """Hybrid retrieval over whatever has been indexed so far: pgvector cosine + Postgres full-text, fused with RRF."""
 import re
+import threading
+import time
 
 from . import db, llm
 
@@ -52,3 +54,15 @@ def corpus_stats():
         pending = c.execute("SELECT count(*) n FROM jobs WHERE status IN ('queued','running')").fetchone()["n"]
         kinds = c.execute("SELECT k, count(*) n FROM chunks, unnest(kinds) k GROUP BY k").fetchall()
     return {"documents": docs, "pending_jobs": pending, "chunks_by_kind": {r["k"]: r["n"] for r in kinds}}
+
+
+_stats_cache = {"t": 0.0, "v": None}
+_stats_lock = threading.Lock()
+
+
+def corpus_stats_cached(ttl=10.0):
+    """corpus_stats scans every chunk; under query load reuse a value at most `ttl` seconds old."""
+    with _stats_lock:
+        if _stats_cache["v"] is None or time.monotonic() - _stats_cache["t"] > ttl:
+            _stats_cache["v"], _stats_cache["t"] = corpus_stats(), time.monotonic()
+        return _stats_cache["v"]

@@ -20,6 +20,13 @@ data:
   # Queries run on their own model servers (model-llm, model-embed), so page reading does not need to pause for them
   # (the local single-machine default does, because one Ollama serves everything).
   YIELD_TO_QUERIES: "0"
+  # ...but on a shared GPU, page reading backs off to 8 concurrent while 24+ queries are in flight, so the agent model
+  # gets GPU time (ingest keeps going, just slower). Set QUERY_PRESSURE_INFLIGHT to "0" when models have their own GPUs.
+  QUERY_PRESSURE_INFLIGHT: "24"
+  VLM_LIMIT_UNDER_QUERY_LOAD: "8"
+  # Agent tracing (OpenTelemetry, OpenInference attributes) -> LiteLLM Lens. Empty = off. See scripts/lens-up.sh.
+  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ""
+  OTEL_SERVICE_NAME: docuflow
   LEASE_SECONDS: "300"
   HTTP_RETRIES: "4"
   WORKER_METRICS_PORT: "9100"

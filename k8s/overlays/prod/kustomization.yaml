@@ -10,6 +10,7 @@ namespace: docuflow
 resources:
   - ../../base
   - backup-cronjob.yaml
+  - llm-autoscaling.yaml
 components:
   - ../../components/models
   - ../../components/monitoring
@@ -30,6 +31,10 @@ patches:
       - {op: replace, path: /spec/maxReplicaCount, value: 4}
       - {op: replace, path: /spec/triggers/0/metadata/threshold, value: "16"}   # per GPU replica (max-num-seqs 64)
       - {op: replace, path: /spec/cooldownPeriod, value: 600}
+  - target: {kind: ScaledObject, name: model-embed}
+    patch: |-
+      - {op: replace, path: /spec/maxReplicaCount, value: 4}
+      - {op: replace, path: /spec/triggers/0/metadata/threshold, value: "64"}
   - target: {kind: PersistentVolume, name: docuflow-model-cache}
     patch: |-
       $patch: delete
@@ -41,6 +46,7 @@ patches:
       - {op: replace, path: /data/PER_DATASET_CAP, value: "128"}
       - {op: replace, path: /data/LIMIT_VLM, value: "128"}
       - {op: replace, path: /data/PROCS_VLM, value: "128"}
+      - {op: replace, path: /data/QUERY_PRESSURE_INFLIGHT, value: "0"}   # models have their own GPUs in prod
   - target: {kind: ScaledObject, name: worker-vlm}
     patch: |-
       - {op: replace, path: /spec/maxReplicaCount, value: 48}   # up to 48 concurrent page reads -> model-vlm 3-4 replicas

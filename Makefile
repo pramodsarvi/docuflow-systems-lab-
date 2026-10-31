@@ -81,6 +81,12 @@ ragas:            ## RAGAS eval (faithfulness, relevancy, context precision/reca
 	kubectl -n docuflow port-forward svc/model-embed 18000:8000 >/dev/null & pf2=$$!; sleep 3; \
 	.venv-eval/bin/python evals/ragas_eval.py --api $(API) -n $(or $(N),40); rc=$$?; kill $$pf1 $$pf2; exit $$rc
 
+ingest-mode:      ## pause queries, stop the agent model, give the whole GPU to page reading
+	scripts/mode.sh ingest
+
+query-mode:       ## back to normal: agent model up, queries open
+	scripts/mode.sh query
+
 k8s-status:       ## pods, KEDA ScaledObjects, HPAs, GPUs, RabbitMQ queues
 	@kubectl -n docuflow get pods,scaledobject,hpa -o wide
 	@kubectl get nodes -o custom-columns='NODE:.metadata.name,POOL:.metadata.labels.docuflow\.io/pool,GPU:.status.allocatable.nvidia\.com/gpu'
@@ -119,4 +125,4 @@ prod-deploy:      ## REGISTRY=... TAG=... HOST=docuflow.example.com
 	kubectl -n docuflow rollout status deploy/api --timeout=600s
 
 .PHONY: help setup db stack models up lint test ingest-all status ask eval cluster-up cluster-down image deploy render \
-        smoke stress ragas k8s-status grafana k8s-key undeploy prod-image prod-secrets prod-deploy
+        smoke stress ragas ingest-mode query-mode k8s-status grafana k8s-key undeploy prod-image prod-secrets prod-deploy

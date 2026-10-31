@@ -10,8 +10,10 @@ apiVersion: apps/v1
 kind: Deployment
 metadata: {name: model-embed, labels: {app: model-embed}}
 spec:
-  replicas: 1
-  strategy: {type: Recreate}          # a second copy would not fit next to the others on a shared GPU
+  # no `replicas`: KEDA owns it (autoscaling.yaml)
+  # Recreate: on a shared GPU a surge pod cannot get memory until the old ones stop (rolling updates deadlock).
+  # Only affects config/image updates, not KEDA scaling. Prod (whole GPUs) patches this back to RollingUpdate.
+  strategy: {type: Recreate}
   selector: {matchLabels: {app: model-embed}}
   template:
     metadata:
@@ -38,13 +40,13 @@ spec:
             - "--port"
             - "8000"
             - "--gpu-memory-utilization"
-            - "0.08"
+            - "0.06"
             - "--kv-cache-memory-bytes"
-            - "1073741824"
+            - "536870912"             # 512 MiB: embedding requests are short and finish in one pass
             - "--runner"
             - "pooling"
             - "--max-model-len"
-            - "8192"
+            - "2048"                  # chunks are <= 700 chars (~200 tokens); 8192 needs 0.88 GiB KV just to start
             - "--max-num-seqs"
             - "64"
           env:
@@ -57,8 +59,8 @@ spec:
           readinessProbe: {httpGet: {path: /health, port: http}, periodSeconds: 10}
           livenessProbe: {httpGet: {path: /health, port: http}, periodSeconds: 20, failureThreshold: 6}
           resources:
-            requests: {cpu: "1", memory: 8Gi, nvidia.com/gpu: 1}
-            limits: {memory: 8Gi, nvidia.com/gpu: 1}
+            requests: {cpu: "1", memory: 6Gi, nvidia.com/gpu: 1}
+            limits: {memory: 6Gi, nvidia.com/gpu: 1}
           securityContext: {allowPrivilegeEscalation: false}
           volumeMounts:
             - {name: cache, mountPath: /models}

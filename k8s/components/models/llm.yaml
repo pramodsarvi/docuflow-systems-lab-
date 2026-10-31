@@ -38,13 +38,14 @@ spec:
             - "--port"
             - "8000"
             - "--gpu-memory-utilization"
-            - "0.30"
+            - "0.38"
             - "--kv-cache-memory-bytes"
-            - "4294967296"
+            - "8589934592"            # 8 GiB: at 32 sequences the 4 GiB cache was 81% full with 64 requests waiting
             - "--max-model-len"
             - "16384"
             - "--max-num-seqs"
-            - "32"
+            - "64"
+            - "--enable-prefix-caching"   # every agent step repeats the same system prompt
           env:
             - {name: HF_HOME, value: /models/hf}
             - {name: VLLM_NO_USAGE_STATS, value: "1"}

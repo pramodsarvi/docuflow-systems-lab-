@@ -49,8 +49,12 @@ def claim(lane, worker):
     if lane in paused["lanes"]:
         return None
     limit = limits.get(lane, 1)
-    if lane == "vlm" and config.YIELD_TO_QUERIES and queries_in_flight():
-        return None
+    if lane == "vlm" and (config.YIELD_TO_QUERIES or config.QUERY_PRESSURE_INFLIGHT):
+        q = queries_in_flight()
+        if config.YIELD_TO_QUERIES and q:
+            return None                       # single-machine mode: one model server, queries go first
+        if config.QUERY_PRESSURE_INFLIGHT and q >= config.QUERY_PRESSURE_INFLIGHT:
+            limit = min(limit, config.VLM_LIMIT_UNDER_QUERY_LOAD)   # shared GPU: give the agent model room
     cap = config.PER_DATASET_CAP if lane == "vlm" else 1000
     with db.pool().connection() as c:
         c.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (lane,))

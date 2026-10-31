@@ -11,7 +11,9 @@ kind: Deployment
 metadata: {name: model-vlm, labels: {app: model-vlm}}
 spec:
   # no `replicas`: KEDA owns it (autoscaling.yaml); a value here would reset the live count on every `kubectl apply`
-  strategy: {type: RollingUpdate, rollingUpdate: {maxUnavailable: 0, maxSurge: 1}}
+  # Recreate: on a shared GPU a surge pod cannot get memory until the old ones stop (rolling updates deadlock).
+  # Only affects config/image updates, not KEDA scaling. Prod (whole GPUs) patches this back to RollingUpdate.
+  strategy: {type: Recreate}
   selector: {matchLabels: {app: model-vlm}}
   template:
     metadata:
@@ -38,9 +40,9 @@ spec:
             - "--port"
             - "8000"
             - "--gpu-memory-utilization"
-            - "0.28"
+            - "0.25"
             - "--kv-cache-memory-bytes"
-            - "3221225472"
+            - "1610612736"            # 1.5 GiB: at 13 running requests the 3 GiB cache was only 12-15% used
             - "--max-model-len"
             - "12288"
             - "--max-num-seqs"

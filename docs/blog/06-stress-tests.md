@@ -119,6 +119,8 @@ handwriting lines, XFUND, DocVQA and FUNSD. `scripts/mode.sh ingest` does four t
 | run 1 (cap of 8, single vLLM replica effective) | 34 pages/min |
 | run 2 after the cap fix | 56.5 pages/min |
 | ingest mode, 3 vLLM replicas, 48 workers, 8 fetchers | **~170 pages/min** (865 pages per 5 min) |
+| same, once the fast IAM pages were done (scans and forms only) | ~74 pages/min |
+| same, readers given 3 GiB KV / 24 slots and 72 workers | ~74 pages/min (memory relieved, GPU compute-bound) |
 
 The page mix matters as much as the configuration. Under this load, mean VLM read time per page was:
 
@@ -131,4 +133,10 @@ The page mix matters as much as the configuration. Under this load, mean VLM rea
 | XFUND | multilingual form, ~2,480 px | **52.8 s** |
 
 A "pages per minute" number means little without the page mix: a 10x difference in work per page separates IAM from
-XFUND.
+XFUND. The drop from ~170 to ~74 pages/min came from the mix changing once all 2,915 IAM lines were done, not from a
+regression.
+
+The ingest run also surfaced three new failures, each now fixed or understood: dense pages truncated mid-JSON,
+a brief model-server outage that downgraded 264 pages to fallback text, and a KV-cache budget too small for the
+longer outputs. Part 7 (failures 11–14) covers them. Over the whole run, the operator dashboard (Part 8) showed
+pages per minute per dataset, KEDA's trigger values and each model server's batch state.

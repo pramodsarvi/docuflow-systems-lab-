@@ -143,7 +143,9 @@ one NVIDIA L40S (46 GB), a kind cluster, and three vLLM servers sharing that GPU
 <li><strong>Most of the bugs weren't in the autoscaler. They sat around it:</strong> an in-app concurrency cap that left
   4 of 12 new pods idle, HTTP keep-alive pinning every worker to the first vLLM replica, <code>kubectl apply</code> resetting
   KEDA's replica counts, KEDA failing to resolve short DNS names, and rolling updates that deadlocked on GPU memory.
-  Fixing them took ingest from <strong>34 to ~170 pages/min</strong> on the same GPU.</li>
+  Fixing them took ingest from <strong>34 to ~170 pages/min</strong> on the same GPU. Running a 14,600-page ingest then
+  surfaced four more: truncated output discarding whole pages, an outage that downgraded pages instead of deferring
+  them, a memory budget that turned out not to be the bottleneck, and uneven per-connection balancing.</li>
 <li><strong>Scaling the wrong tier does nothing.</strong> KEDA scaled the API to 8 pods under 96 concurrent queries; each pod used
   5 millicores, because the bottleneck was the agent model's batch slots (32 running, 64 waiting). Latency only
   moved when the model server got more capacity.</li>
@@ -1005,6 +1007,14 @@ handwriting lines, XFUND, DocVQA and FUNSD. <code>scripts/mode.sh ingest</code> 
 <td>ingest mode, 3 vLLM replicas, 48 workers, 8 fetchers</td>
 <td><strong>~170 pages/min</strong> (865 pages per 5 min)</td>
 </tr>
+<tr>
+<td>same, once the fast IAM pages were done (scans and forms only)</td>
+<td>~74 pages/min</td>
+</tr>
+<tr>
+<td>same, readers given 3 GiB KV / 24 slots and 72 workers</td>
+<td>~74 pages/min (memory relieved, GPU compute-bound)</td>
+</tr>
 </tbody>
 </table></div>
 <figure class="chart"><figcaption><b>Ingest rate, same single L40S.</b> Pages indexed per minute as the scaling bugs were fixed and the GPU was dedicated to ingest.</figcaption><svg viewBox="0 0 640 164" role="img" aria-label="Ingest rate by configuration"><line class="grid" x1="300.0" x2="300.0" y1="6" y2="144"/><text class="axis" x="300.0" y="160" text-anchor="middle">0</text><line class="grid" x1="380.6" x2="380.6" y1="6" y2="144"/><text class="axis" x="380.6" y="160" text-anchor="middle">50</text><line class="grid" x1="461.1" x2="461.1" y1="6" y2="144"/><text class="axis" x="461.1" y="160" text-anchor="middle">100</text><line class="grid" x1="541.7" x2="541.7" y1="6" y2="144"/><text class="axis" x="541.7" y="160" text-anchor="middle">150</text><text class="label" x="290" y="29" text-anchor="end">Run 1: cap of 8, one effective vLLM replica</text><rect class="bar-c" x="300" y="14" width="54.8" height="22" rx="2"/><text class="val" x="360.8" y="30">34/min</text><text class="label" x="290" y="75" text-anchor="end">Run 2: in-app cap raised</text><rect class="bar-c" x="300" y="60" width="91.0" height="22" rx="2"/><text class="val" x="397.0" y="76">56.5/min</text><text class="label" x="290" y="121" text-anchor="end">Ingest mode: 3 vLLM replicas, 48 workers</text><rect class="bar-a" x="300" y="106" width="273.9" height="22" rx="2"/><text class="val" x="579.9" y="122">170/min</text></svg></figure><p>The page mix matters as much as the configuration. Under this load, mean VLM read time per page was:</p>
@@ -1045,8 +1055,13 @@ handwriting lines, XFUND, DocVQA and FUNSD. <code>scripts/mode.sh ingest</code> 
 </tbody>
 </table></div>
 <p>A "pages per minute" number means little without the page mix: a 10x difference in work per page separates IAM from
-XFUND.</p></section>
-<section id="part-7" class="part"><p class="partno">Part 7</p><h2 class="parttitle">What broke, and the fixes</h2><p>Ten failures from building and stress-testing the system. Most of them sat <em>around</em> the autoscaler rather than in it,
+XFUND. The drop from ~170 to ~74 pages/min came from the mix changing once all 2,915 IAM lines were done, not from a
+regression.</p>
+<p>The ingest run also surfaced three new failures, each now fixed or understood: dense pages truncated mid-JSON,
+a brief model-server outage that downgraded 264 pages to fallback text, and a KV-cache budget too small for the
+longer outputs. Part 7 (failures 11–14) covers them. Over the whole run, the operator dashboard (Part 8) showed
+pages per minute per dataset, KEDA's trigger values and each model server's batch state.</p></section>
+<section id="part-7" class="part"><p class="partno">Part 7</p><h2 class="parttitle">What broke, and the fixes</h2><p>Fourteen failures from building, stress-testing and running the system at full ingest load. Most of them sat <em>around</em> the autoscaler rather than in it,
 and none showed up in unit tests or a quiet cluster.</p>
 <h3>1. KEDA started pods that sat idle</h3>
 <p><strong>Symptom.</strong> 12 page-reading workers were running, but only 8 jobs were. The database showed <code>vlm running = 8</code> no
@@ -1127,6 +1142,49 @@ model server restarted. The run's numbers before and after that moment can't be 
 <p><strong>Fix.</strong> Stop applying manifests during a measured run, or use a dedicated "live patch" path (<code>scripts/mode.sh</code> uses
 <code>kubectl patch</code> on ScaledObjects and never touches Deployments). Stress-test reports should record every manual
 intervention with its timestamp.</p>
+<h3>11. Dense pages were thrown away whole</h3>
+<p><strong>Symptom.</strong> Five DocVQA pages (financial statements, ingredient tables) went <code>dead</code> after three attempts with
+<code>unparseable VLM output: Expecting ',' delimiter</code>.</p>
+<p><strong>Cause.</strong> A dense page has hundreds of text regions. The vision model's output reached the 3,000-token limit in the
+middle of the JSON, and the parser rejected the entire page, including the hundreds of regions it had already read.
+Retrying can't help: the page is just as dense every time.</p>
+<p><strong>Fix.</strong>
+- Keep every region object that was completed before the cut-off (<code>extract.salvage_regions</code>).
+- Raise the output limit to 6,000 tokens; with a ~2,100-token page image that still fits the reader's 12,288-token
+  context.</p>
+<p>All five pages were then indexed. A regression test covers a cut-off region list with escaped quotes.</p>
+<h3>12. A one-minute outage downgraded 264 pages</h3>
+<p><strong>Symptom.</strong> 264 synthetic pages were indexed from the dataset's own transcription instead of a vision read, all
+within 52 seconds, exactly while the page-reading servers were crash-looping during a configuration change.</p>
+<p><strong>Cause.</strong> A page gets 3 attempts with 5 s and 10 s backoff, and on the last attempt it falls back to the
+dataset's transcription when one exists. That rule was meant for pages the model can't read. During an outage, every
+page in flight used up its attempts in about 15 seconds and fell back, even though nothing was wrong with the pages.</p>
+<p><strong>Fix.</strong> Separate "the model server is unavailable" from "this page failed":
+- The model client raises <code>ModelUnavailable</code> for connection errors, timeouts, 429 and 5xx once its own quick
+  retries are exhausted.
+- Workers <strong>defer</strong> such jobs: the attempt is refunded, there's never a fallback, and the backoff grows from 15 s to
+  5 minutes per consecutive outage.
+- The API maps the same error to <code>503 Retry-After</code>.
+- <code>POST /workloads/reread-fallbacks</code> queues a real vision read for every downgraded page.</p>
+<p>The next restart of the page readers produced <strong>590 deferrals, 0 dead jobs and 0 new fallbacks.</strong></p>
+<h3>13. Two good changes combined into a bad one</h3>
+<p><strong>Symptom.</strong> After fixes 11 and 12, ingest slowed and per-page read time grew: XFUND from 53 s to 78 s, DocVQA from
+37 s to 49 s. The page readers' KV cache was 68–88% full, their 16 batch slots were full, and requests were waiting.</p>
+<p><strong>Cause.</strong> The page readers' KV cache had been cut to 1.5 GiB to make room for other servers (Part 5), and the
+output limit had just been doubled. Longer outputs filled the small cache.</p>
+<p><strong>Fix, and what it showed.</strong> In ingest mode the agent model is scaled to zero, which frees ~17 GB. <code>mode.sh ingest</code>
+now gives that memory to page reading: 3 GiB KV cache and 24 batch slots per reader, and 72 workers to fill them.
+KV use dropped to 27–75%, so memory pressure was gone. <strong>But throughput didn't change</strong> (~74 pages/min before and
+after), because the GPU was compute-bound at 99–100%. Memory was a symptom, not the bottleneck. Check compute
+utilisation before giving a server more memory or more concurrency.</p>
+<h3>14. Per-connection balancing is uneven for long requests</h3>
+<p><strong>Symptom.</strong> With keep-alive off (failure 3), load across the three page readers was still uneven. One had
+<strong>24 running + 11 waiting</strong> while another had <strong>12 running and free slots</strong>.</p>
+<p><strong>Cause.</strong> kube-proxy picks a backend at random for each new connection. With requests lasting 25–80 s, random
+placement doesn't even out over a short window, and it ignores how busy each backend already is.</p>
+<p><strong>Fix (recommended, not yet implemented).</strong> Least-request routing: kube-proxy in IPVS mode with the <code>lc</code> scheduler,
+an Envoy-based gateway, or an inference gateway that routes on each server's queue and KV-cache state. Random
+placement wastes a fraction of the batch capacity that autoscaling paid for.</p>
 <h3>The pattern</h3>
 <div class="scroll"><table>
 <thead>
@@ -1143,6 +1201,16 @@ intervention with its timestamp.</p>
 <td>1</td>
 </tr>
 <tr>
+<td>model output</td>
+<td>limits that discard work instead of degrading</td>
+<td>11</td>
+</tr>
+<tr>
+<td>failure semantics</td>
+<td>treating infrastructure outages as bad input</td>
+<td>12</td>
+</tr>
+<tr>
 <td>thresholds</td>
 <td>demand that could never reach the target</td>
 <td>2</td>
@@ -1150,7 +1218,7 @@ intervention with its timestamp.</p>
 <tr>
 <td>networking</td>
 <td>load balancing per connection</td>
-<td>3</td>
+<td>3, 14</td>
 </tr>
 <tr>
 <td>deployment tooling</td>
@@ -1164,8 +1232,8 @@ intervention with its timestamp.</p>
 </tr>
 <tr>
 <td>model server</td>
-<td>GPU memory budget</td>
-<td>8</td>
+<td>GPU memory budget, and memory vs compute</td>
+<td>8, 13</td>
 </tr>
 <tr>
 <td>capacity planning</td>
@@ -1249,6 +1317,29 @@ run (Part 7, failure 10).</p>
 <div class="scroll code"><pre><code class="language-bash">make ingest-mode     # pause queries, stop the agent model, page reading gets the whole GPU (~170 pages/min here)
 make query-mode      # agent model back, queries open
 </code></pre></div>
+<h3>8. Operate it</h3>
+<ul>
+<li><strong>Grafana → dashboard "docuflow"</strong> has 45 panels in six rows:</li>
+<li>overview: progress, ETA, dead and fallback pages, query state</li>
+<li>ingest pipeline: per-dataset progress and read times, RabbitMQ tokens, job outcomes</li>
+<li>autoscaling: KEDA trigger values, replicas, desired as % of max, pending pods, scaler errors</li>
+<li>vLLM: running/waiting, KV cache, TTFT, queue time, preemptions</li>
+<li>queries</li>
+<li>GPU and cluster</li>
+</ul>
+<p>It's generated by <code>k8s/components/monitoring/build_dashboard.py</code>.
+- <strong>Alerts:</strong>
+  - API or model server down
+  - dead jobs
+  - stale backlog
+  - failure rate
+  - vLLM queueing
+  - GPU memory
+  - fallback pages
+  - autoscaler pinned at max
+  - KEDA scaler errors
+- <strong>Recovery endpoints:</strong> <code>POST /workloads/retry-dead</code> for pages that failed all attempts, and
+  <code>POST /workloads/reread-fallbacks</code> for pages indexed from dataset text.</p>
 <h3>Cost and capacity notes</h3>
 <ul>
 <li><strong>Worker pods are close to free.</strong> They're CPU-light HTTP clients, so let KEDA scale them to zero and to large

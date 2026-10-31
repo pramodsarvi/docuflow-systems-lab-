@@ -102,6 +102,24 @@ real retrieval. The latest report is in [`evals/ragas-report.md`](evals/ragas-re
 compare runs made with the same judge rather than reading the absolute values. `evals/run_eval.py` still covers
 extraction CER/F1 against the Hub datasets' ground truth and DocVQA exact-match QA.
 
+## Challenges and lessons
+
+Building and stress-testing this system surfaced 14 failures. Most sat around the autoscaler, not in it:
+- app limits KEDA couldn't see
+- thresholds that couldn't be reached
+- per-connection load balancing
+- `kubectl apply` resetting replica counts
+- rolling updates deadlocking on GPU memory
+- vLLM memory profiling on a shared GPU
+- scaling a tier that wasn't the bottleneck
+- truncated model output discarding whole pages
+- outages downgrading pages
+- a memory budget that turned out not to be the bottleneck
+
+Each is written up with symptom, cause and fix in [`docs/blog/07-what-broke.md`](docs/blog/07-what-broke.md). The full
+write-up (system design, HPA vs KEDA, queue design, every ScaledObject, GPU sharing, stress results, how to recreate
+it) starts at [`docs/blog/README.md`](docs/blog/README.md).
+
 ## Repository layout
 
 ```

@@ -25,7 +25,9 @@ What the stress tests showed:
 - **Most of the bugs weren't in the autoscaler. They sat around it:** an in-app concurrency cap that left
   4 of 12 new pods idle, HTTP keep-alive pinning every worker to the first vLLM replica, `kubectl apply` resetting
   KEDA's replica counts, KEDA failing to resolve short DNS names, and rolling updates that deadlocked on GPU memory.
-  Fixing them took ingest from **34 to ~170 pages/min** on the same GPU.
+  Fixing them took ingest from **34 to ~170 pages/min** on the same GPU. Running a 14,600-page ingest then
+  surfaced four more: truncated output discarding whole pages, an outage that downgraded pages instead of deferring
+  them, a memory budget that turned out not to be the bottleneck, and uneven per-connection balancing.
 - **Scaling the wrong tier does nothing.** KEDA scaled the API to 8 pods under 96 concurrent queries; each pod used
   5 millicores, because the bottleneck was the agent model's batch slots (32 running, 64 waiting). Latency only
   moved when the model server got more capacity.
@@ -42,7 +44,7 @@ What the stress tests showed:
    behind each number
 5. [GPUs: one L40S, three vLLM servers](05-gpus.md): passthrough into kind, time-slicing, KV-cache budgets
 6. [Stress testing: method and results](06-stress-tests.md): the load generator, the runs, latency by load step
-7. [What broke, and the fixes](07-what-broke.md): ten failures, each with symptom, cause and fix
+7. [What broke, and the fixes](07-what-broke.md): fourteen failures, each with symptom, cause and fix
 8. [Recreate it](08-recreate.md): commands from a bare GPU machine to a stress report, plus the cost trade-offs
 
 All code is in this repository: manifests in `k8s/`, cluster bootstrap in `scripts/cluster-up.sh`, the load generator

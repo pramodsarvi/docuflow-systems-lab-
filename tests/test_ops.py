@@ -130,3 +130,41 @@ def test_truncated_vlm_output_keeps_completed_regions():
     assert regions == [{"text": "W. K. KELLOGG FOUNDATION", "kind": "printed", "role": "header"},
                        {"text": 'Grant "A" total', "kind": "printed", "role": "body"}]
     assert extract.salvage_regions("not json at all") == []
+
+
+def test_model_outage_defers_without_spending_attempts_or_falling_back(monkeypatch):
+    import httpx as _httpx
+
+    from docuflow import extract, llm
+    monkeypatch.setattr(config, "HTTP_RETRIES", 1)
+    monkeypatch.setattr(llm._http, "post", lambda *a, **k: (_ for _ in ()).throw(_httpx.ConnectError("down")))
+    with db.pool().connection() as c:
+        c.execute("INSERT INTO documents (id, dataset, image, gt_text) VALUES ('o/1', 'synthetic', '\\x00', 'Signed by: X')")
+    jobs.enqueue("extract", "synthetic", {"doc_id": "o/1", "mode": "vlm"})
+    db.control_set("lane_limits", {"vlm": 1}); monkeypatch.setattr(config, "YIELD_TO_QUERIES", False)
+    j = jobs.claim("vlm", "w")
+    with db.pool().connection() as c:                       # last attempt: before the fix this fell back to gt_text
+        c.execute("UPDATE jobs SET attempts=max_attempts WHERE id=%s", (j["id"],))
+    j = {**j, "attempts": j["max_attempts"]}
+    try:
+        pipeline.run_extract(j)
+        raise AssertionError("expected ModelUnavailable")
+    except llm.ModelUnavailable as e:
+        assert jobs.defer(j, e) == 15
+    with db.pool().connection() as c:
+        row = c.execute("SELECT status, attempts, outages FROM jobs WHERE id=%s", (j["id"],)).fetchone()
+        assert c.execute("SELECT count(*) n FROM extractions").fetchone()["n"] == 0      # no fallback extraction written
+    assert row["status"] == "queued" and row["attempts"] == j["max_attempts"] - 1 and row["outages"] == 1
+    assert extract  # imported for the monkeypatched client path
+
+
+def test_reread_fallbacks_queues_vlm_reads():
+    from docuflow import service
+    with db.pool().connection() as c:
+        c.execute("INSERT INTO documents (id, dataset, status) VALUES ('f/1','synthetic','indexed'), ('f/2','synthetic','indexed')")
+        c.execute("INSERT INTO extractions (doc_id, used_fallback) VALUES ('f/1', true), ('f/2', false)")
+    assert service.reread_fallbacks() == {"queued": 1}
+    assert service.reread_fallbacks() == {"queued": 0}          # not queued twice while pending
+    with db.pool().connection() as c:
+        p = c.execute("SELECT payload FROM jobs WHERE stage='extract'").fetchone()["payload"]
+    assert p == {"doc_id": "f/1", "mode": "vlm", "reread": True}

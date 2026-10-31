@@ -33,6 +33,8 @@ def run_extract(job):
     else:
         try:
             regions, secs = extract.read_page(bytes(d["image"]), d["lang"])
+        except llm.ModelUnavailable:
+            raise                     # model server outage: defer the job, never downgrade the page to dataset text
         except Exception:
             # Last attempt: fall back to the dataset's own transcription rather than losing the page.
             if job["attempts"] >= job["max_attempts"] and d["gt_text"]:

@@ -25,19 +25,31 @@ QUERY_INSTRUCT = ("Instruct: Given a question about scanned documents (forms, le
                   "retrieve passages that answer it\nQuery: ")
 
 
+class ModelUnavailable(RuntimeError):
+    """The model server could not be reached or was overloaded/failing (connection errors, timeouts, 429, 5xx) after
+    quick retries. Not the page's fault: workers defer the job instead of spending its retries (see jobs.defer)."""
+
+
+_TRANSIENT = (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout, httpx.RemoteProtocolError, httpx.PoolTimeout)
+
+
 def _post(url, body, headers=None):
     for attempt in range(config.HTTP_RETRIES):
+        last = attempt == config.HTTP_RETRIES - 1
         try:
             r = _http.post(url, json=body, headers=headers)
-            if r.status_code in (429, 500, 502, 503, 504) and attempt < config.HTTP_RETRIES - 1:
-                time.sleep(2 ** attempt)
-                continue
-            r.raise_for_status()
-            return r.json()
-        except (httpx.ConnectError, httpx.ReadTimeout, httpx.RemoteProtocolError):
-            if attempt == config.HTTP_RETRIES - 1:
-                raise
+        except _TRANSIENT as e:
+            if last:
+                raise ModelUnavailable(f"{type(e).__name__} calling {url}: {e}") from e
             time.sleep(2 ** attempt)
+            continue
+        if r.status_code in (429, 500, 502, 503, 504):
+            if last:
+                raise ModelUnavailable(f"HTTP {r.status_code} from {url}: {r.text[:200]}")
+            time.sleep(2 ** attempt)
+            continue
+        r.raise_for_status()          # 4xx: a real request error, handled as a normal job failure
+        return r.json()
 
 
 def _endpoint(role):

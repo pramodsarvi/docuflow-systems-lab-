@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from typing import Optional
 
 import hmac
+import json
 import os
 
 from fastapi import FastAPI, HTTPException, Request, Response
@@ -10,7 +11,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
-from . import agent, config, db, jobs, retrieval, service
+from . import agent, config, db, jobs, llm, retrieval, service
 
 
 @asynccontextmanager
@@ -22,6 +23,12 @@ async def lifespan(_):
 app = FastAPI(title="docuflow", lifespan=lifespan)
 API_KEY = os.environ.get("DOCUFLOW_API_KEY", "")   # empty = open (local dev); set it before exposing the API
 OPEN_PATHS = {"/health", "/ready", "/metrics", "/"}   # probes and scraping stay open; put the Service behind the cluster network
+
+
+@app.exception_handler(llm.ModelUnavailable)
+async def model_unavailable(_request, exc):
+    return Response(json.dumps({"detail": f"model server unavailable, retry shortly: {str(exc)[:200]}"}), status_code=503,
+                    media_type="application/json", headers={"Retry-After": "30"})
 
 
 @app.middleware("http")
@@ -151,6 +158,12 @@ def pause(r: PauseReq):
 @app.post("/workloads/resume")
 def resume(r: PauseReq):
     return service.pause(r.kind, r.name, False)
+
+
+@app.post("/workloads/reread-fallbacks")
+def reread_fallbacks(dataset: Optional[str] = None):
+    """Re-read with the vision model every page that was indexed from the dataset's own transcription."""
+    return service.reread_fallbacks(dataset)
 
 
 @app.post("/workloads/retry-dead")

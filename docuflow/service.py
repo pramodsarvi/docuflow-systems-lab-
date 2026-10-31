@@ -19,6 +19,19 @@ def ingest(dataset, limit=10, offset=0, split=None, mode="vlm", priority=0):
     return {"batch_id": bid, "fetch_jobs": n, "request": req}
 
 
+def reread_fallbacks(dataset=None):
+    """Queue a vision-model re-read of every page that was indexed from the dataset's own transcription."""
+    with db.pool().connection() as c:
+        docs = c.execute("""SELECT d.id, d.dataset FROM documents d JOIN extractions e ON e.doc_id=d.id
+                            WHERE e.used_fallback AND (%s::text IS NULL OR d.dataset=%s)
+                              AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.stage='extract' AND j.status IN ('queued','running')
+                                              AND j.payload->>'doc_id' = d.id)""", (dataset, dataset)).fetchall()
+        for d in docs:
+            jobs.enqueue("extract", d["dataset"], {"doc_id": d["id"], "mode": "vlm", "reread": True}, conn=c)
+    jobs.notify_after("extract", len(docs))
+    return {"queued": len(docs)}
+
+
 def set_lane_limit(lane, limit):
     if lane not in config.LANE_PROCS:
         raise ValueError(f"unknown lane {lane!r}")

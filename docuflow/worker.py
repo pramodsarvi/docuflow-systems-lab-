@@ -15,7 +15,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import psycopg
 
-from . import broker, config, db, jobs, pipeline
+from . import broker, config, db, jobs, llm, pipeline
 
 _stop = False
 IDLE_STALE_SECONDS = 60
@@ -163,6 +163,13 @@ def run(lane):
             jobs.complete(job["id"])
             state.record(job["stage"], "ok", time.perf_counter() - t0)
             print(f"[{name}] {job['stage']} #{job['id']} {job['dataset']} ok ({out}) {time.perf_counter() - t0:.1f}s", flush=True)
+        except llm.ModelUnavailable as e:
+            try:
+                delay = jobs.defer(job, e)
+            except psycopg.OperationalError:
+                delay = None          # lease expiry will requeue it
+            state.record(job["stage"], "deferred", time.perf_counter() - t0)
+            print(f"[{name}] {job['stage']} #{job['id']} deferred {delay}s: model server unavailable: {str(e)[:160]}", flush=True)
         except Exception as e:
             try:
                 dead = jobs.fail(job, f"{type(e).__name__}: {e}")

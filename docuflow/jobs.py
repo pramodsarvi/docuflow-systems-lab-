@@ -98,6 +98,18 @@ def fail(job, err):
     return dead
 
 
+def defer(job, err):
+    """Model server unavailable: requeue without spending one of the job's attempts, backing off 15 s, 30 s, 60 s ...
+    up to 5 min per consecutive outage. A brief outage delays pages instead of failing or downgrading them."""
+    delay = min(300, 15 * 2 ** job.get("outages", 0))
+    with db.pool().connection() as c:
+        c.execute("""UPDATE jobs SET status='queued', attempts=greatest(attempts-1, 0), outages=outages+1, error=%s,
+                     locked_by=NULL, run_after = now() + make_interval(secs => %s) WHERE id=%s""",
+                  (str(err)[:2000], delay, job["id"]))
+    broker.notify(job["lane"], 1, delay_seconds=delay)
+    return delay
+
+
 def reap():
     """Requeue jobs whose worker vanished (lease expired)."""
     with db.pool().connection() as c:

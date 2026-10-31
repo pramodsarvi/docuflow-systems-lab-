@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   run_after timestamptz NOT NULL DEFAULT now(), locked_by text, locked_at timestamptz,
   error text, created_at timestamptz DEFAULT now(), started_at timestamptz, finished_at timestamptz);
 CREATE INDEX IF NOT EXISTS jobs_claim ON jobs(lane, status, priority DESC, id);
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS outages int NOT NULL DEFAULT 0;   -- deferrals caused by model-server outages
 CREATE TABLE IF NOT EXISTS control (key text PRIMARY KEY, value jsonb NOT NULL);
 CREATE TABLE IF NOT EXISTS inflight (id text PRIMARY KEY, beat timestamptz NOT NULL DEFAULT now());
 CREATE TABLE IF NOT EXISTS queries (

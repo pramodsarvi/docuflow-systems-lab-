@@ -4,7 +4,7 @@
 set -euo pipefail
 API=${1:-http://docuflow.localtest.me}
 H=(-H "x-api-key: ${DOCUFLOW_API_KEY:-}" -H 'content-type: application/json')
-OFFSET=$(( (RANDOM % 5000) + 5000 ))   # fresh pages each run
+OFFSET=$(( 100000 + RANDOM * 4 ))   # never-ingested range, so every run really reads pages
 N=${N:-6}
 MODE=${MODE:-vlm}
 j() { python3 -c "import sys,json; d=json.load(sys.stdin); print($1)"; }

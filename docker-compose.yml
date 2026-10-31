@@ -1,0 +1,10 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: docuflow-db
+    environment: {POSTGRES_USER: docuflow, POSTGRES_PASSWORD: docuflow, POSTGRES_DB: docuflow}
+    ports: ["5434:5432"]
+    volumes: [dbdata:/var/lib/postgresql/data]
+    healthcheck: {test: ["CMD-SHELL", "pg_isready -U docuflow"], interval: 3s, retries: 20}
+volumes:
+  dbdata:

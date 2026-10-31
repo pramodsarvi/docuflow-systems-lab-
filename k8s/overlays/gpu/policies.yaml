@@ -1,0 +1,23 @@
+# Disruption budgets keep the API available through node upgrades; workers are safe to interrupt (jobs requeue).
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: api, namespace: docuflow}
+spec: {minAvailable: 1, selector: {matchLabels: {app: api}}}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: db, namespace: docuflow}
+spec: {maxUnavailable: 0, selector: {matchLabels: {app: db}}}
+---
+# Postgres only accepts connections from docuflow pods and from KEDA (its Postgres scaler polls queue depth).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: db-ingress, namespace: docuflow}
+spec:
+  podSelector: {matchLabels: {app: db}}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: {}
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: keda}}
+      ports: [{port: 5432}]

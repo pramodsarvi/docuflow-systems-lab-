@@ -1,0 +1,55 @@
+# One ScaledObject per lane, driven by the number of queued + running jobs in Postgres.
+# Same KEDA/HPA mechanism as the llm-d tenants, with a Postgres scaler instead of Prometheus.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata: {name: worker-vlm, namespace: docuflow}
+spec:
+  scaleTargetRef: {name: worker-vlm}
+  minReplicaCount: 0                 # scale to zero when nothing is queued: no GPU held while idle
+  maxReplicaCount: 6
+  pollingInterval: 5
+  cooldownPeriod: 45
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp: {stabilizationWindowSeconds: 0, policies: [{type: Pods, value: 3, periodSeconds: 10}]}
+        scaleDown: {stabilizationWindowSeconds: 30, policies: [{type: Pods, value: 1, periodSeconds: 20}]}
+  triggers:
+    - type: postgresql
+      metadata:
+        connectionFromEnv: DOCUFLOW_DSN
+        query: "SELECT count(*) FROM jobs WHERE lane='vlm' AND status IN ('queued','running')"
+        targetQueryValue: "2"            # about two page-reading jobs per worker
+        activationTargetQueryValue: "0"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata: {name: worker-embed, namespace: docuflow}
+spec:
+  scaleTargetRef: {name: worker-embed}
+  minReplicaCount: 1
+  maxReplicaCount: 2
+  pollingInterval: 5
+  cooldownPeriod: 30
+  triggers:
+    - type: postgresql
+      metadata:
+        connectionFromEnv: DOCUFLOW_DSN
+        query: "SELECT count(*) FROM jobs WHERE lane='embed' AND status IN ('queued','running')"
+        targetQueryValue: "8"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata: {name: worker-io, namespace: docuflow}
+spec:
+  scaleTargetRef: {name: worker-io}
+  minReplicaCount: 1
+  maxReplicaCount: 2
+  pollingInterval: 5
+  cooldownPeriod: 30
+  triggers:
+    - type: postgresql
+      metadata:
+        connectionFromEnv: DOCUFLOW_DSN
+        query: "SELECT count(*) FROM jobs WHERE lane='io' AND status IN ('queued','running')"
+        targetQueryValue: "2"

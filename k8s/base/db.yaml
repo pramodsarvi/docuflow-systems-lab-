@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Service
+metadata: {name: db, namespace: docuflow}
+spec: {selector: {app: db}, ports: [{port: 5432}]}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: {name: db, namespace: docuflow}
+spec:
+  serviceName: db
+  replicas: 1
+  selector: {matchLabels: {app: db}}
+  template:
+    metadata: {labels: {app: db}}
+    spec:
+      priorityClassName: tenant-standard
+      containers:
+        - name: postgres
+          image: pgvector/pgvector:pg16
+          env:
+            - {name: POSTGRES_USER, value: docuflow}
+            - {name: POSTGRES_PASSWORD, value: docuflow}
+            - {name: POSTGRES_DB, value: docuflow}
+            - {name: PGDATA, value: /var/lib/postgresql/data/pgdata}
+          args: ["-c", "max_connections=200", "-c", "shared_buffers=128MB"]
+          ports: [{containerPort: 5432}]
+          readinessProbe: {exec: {command: ["pg_isready", "-U", "docuflow"]}, periodSeconds: 3}
+          resources: {requests: {cpu: 100m, memory: 256Mi}, limits: {memory: 768Mi}}
+          volumeMounts: [{name: data, mountPath: /var/lib/postgresql/data}]
+  volumeClaimTemplates:
+    - metadata: {name: data}
+      spec: {accessModes: [ReadWriteOnce], resources: {requests: {storage: 2Gi}}}

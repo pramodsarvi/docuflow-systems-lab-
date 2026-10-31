@@ -1,0 +1,125 @@
+"""Postgres-backed job queue plus the workload-management rules applied at claim time.
+
+Rules enforced when a worker claims a job (all adjustable live through the `control` table):
+  * lane limit      max jobs running at once in a lane, across all worker processes
+  * dataset cap     max running jobs per dataset in a lane, so one dataset cannot starve the others
+  * pause           lanes or datasets can be paused; running jobs finish, nothing new starts
+  * priority        higher first; ties go to the dataset with the fewest running jobs (fair share)
+  * query yield     while interactive queries are in flight the vlm lane starts no new work
+"""
+import time
+
+from . import config, db
+
+LANE_OF = {"fetch": "io", "extract": "vlm", "embed": "embed"}
+STAGE_PRIORITY = {"embed": 20, "extract": 10, "fetch": 0}   # downstream stages first, so documents finish and become queryable
+
+
+def enqueue(stage, dataset, payload, batch_id=None, priority=0, conn=None):
+    sql = ("INSERT INTO jobs (batch_id, dataset, stage, lane, priority, payload) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id")
+    args = (batch_id, dataset, stage, LANE_OF[stage], priority + STAGE_PRIORITY[stage], db.jb(payload))
+    if conn is not None:
+        return conn.execute(sql, args).fetchone()["id"]
+    with db.pool().connection() as c:
+        return c.execute(sql, args).fetchone()["id"]
+
+
+def queries_in_flight():
+    with db.pool().connection() as c:
+        return c.execute("SELECT count(*) n FROM inflight WHERE beat > now() - interval '120 seconds'").fetchone()["n"]
+
+
+def lane_limits():
+    lim = dict(config.LANE_LIMIT_DEFAULT)
+    lim.update(db.control_get("lane_limits", {}))
+    return lim
+
+
+def claim(lane, worker):
+    """Atomically claim one eligible job in `lane`, or return None."""
+    limits = lane_limits()
+    paused = db.control_get("paused", {"lanes": [], "datasets": []})
+    if lane in paused["lanes"]:
+        return None
+    limit = limits.get(lane, 1)
+    if lane == "vlm" and config.YIELD_TO_QUERIES and queries_in_flight():
+        return None
+    cap = config.PER_DATASET_CAP if lane == "vlm" else 1000
+    with db.pool().connection() as c:
+        c.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (lane,))
+        running = c.execute("SELECT count(*) n FROM jobs WHERE lane=%s AND status='running'", (lane,)).fetchone()["n"]
+        if running >= limit:
+            return None
+        return c.execute("""
+            WITH cand AS (
+              SELECT j.id FROM jobs j
+              WHERE j.status='queued' AND j.lane=%(lane)s AND j.run_after <= now() AND NOT (j.dataset = ANY(%(paused)s))
+                AND (SELECT count(*) FROM jobs r WHERE r.status='running' AND r.lane=j.lane AND r.dataset=j.dataset) < %(cap)s
+              ORDER BY j.priority DESC,
+                       (SELECT count(*) FROM jobs r WHERE r.status='running' AND r.lane=j.lane AND r.dataset=j.dataset),
+                       j.id
+              FOR UPDATE SKIP LOCKED LIMIT 1)
+            UPDATE jobs SET status='running', locked_by=%(w)s, locked_at=now(), started_at=now(), attempts=attempts+1
+            FROM cand WHERE jobs.id = cand.id RETURNING jobs.*""",
+            {"lane": lane, "paused": paused["datasets"], "cap": cap, "w": worker}).fetchone()
+
+
+def heartbeat(job_id):
+    with db.pool().connection() as c:
+        c.execute("UPDATE jobs SET locked_at=now() WHERE id=%s", (job_id,))
+
+
+def complete(job_id):
+    with db.pool().connection() as c:
+        c.execute("UPDATE jobs SET status='done', finished_at=now(), error=NULL WHERE id=%s", (job_id,))
+
+
+def fail(job, err):
+    """Retry with exponential backoff until max_attempts, then park the job as 'dead'."""
+    dead = job["attempts"] >= job["max_attempts"]
+    delay = min(300, 5 * 2 ** (job["attempts"] - 1))
+    with db.pool().connection() as c:
+        c.execute("""UPDATE jobs SET status=%s, error=%s, locked_by=NULL, finished_at=CASE WHEN %s THEN now() END,
+                     run_after = now() + make_interval(secs => %s) WHERE id=%s""",
+                  ("dead" if dead else "queued", str(err)[:2000], dead, delay, job["id"]))
+    return dead
+
+
+def reap():
+    """Requeue jobs whose worker vanished (lease expired)."""
+    with db.pool().connection() as c:
+        return c.execute("""UPDATE jobs SET status='queued', locked_by=NULL, error='lease expired'
+                            WHERE status='running' AND locked_at < now() - make_interval(secs => %s)""",
+                         (config.LEASE_SECONDS,)).rowcount
+
+
+def requeue_running():
+    """Startup recovery: no workers exist yet, so anything still 'running' was orphaned by an unclean shutdown."""
+    with db.pool().connection() as c:
+        return c.execute("UPDATE jobs SET status='queued', locked_by=NULL, error='orphaned at startup' WHERE status='running'").rowcount
+
+
+def retry_dead(dataset=None):
+    with db.pool().connection() as c:
+        return c.execute("UPDATE jobs SET status='queued', attempts=0, run_after=now(), error=NULL "
+                         "WHERE status='dead' AND (%s::text IS NULL OR dataset=%s)", (dataset, dataset)).rowcount
+
+
+def snapshot():
+    """Queue depth, running jobs, and recent throughput per lane; used by the API and the CLI."""
+    with db.pool().connection() as c:
+        rows = c.execute("""SELECT lane, status, count(*) n FROM jobs GROUP BY lane, status""").fetchall()
+        done = c.execute("""SELECT lane, count(*) n, avg(extract(epoch FROM finished_at - started_at)) avg_s
+                            FROM jobs WHERE status='done' AND finished_at > now() - interval '5 minutes' GROUP BY lane""").fetchall()
+        by_ds = c.execute("""SELECT dataset, status, count(*) n FROM jobs GROUP BY dataset, status""").fetchall()
+    lanes = {l: {"queued": 0, "running": 0, "done": 0, "dead": 0} for l in ("io", "vlm", "embed")}
+    for r in rows:
+        lanes[r["lane"]][r["status"]] = r["n"]
+    for r in done:
+        lanes[r["lane"]]["done_5m"] = r["n"]
+        lanes[r["lane"]]["avg_seconds"] = round(r["avg_s"] or 0, 2)
+    datasets = {}
+    for r in by_ds:
+        datasets.setdefault(r["dataset"], {})[r["status"]] = r["n"]
+    return {"lanes": lanes, "limits": lane_limits(), "paused": db.control_get("paused", {"lanes": [], "datasets": []}),
+            "queries_in_flight": queries_in_flight(), "datasets": datasets, "ts": time.time()}

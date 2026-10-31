@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+psycopg[binary,pool]
+pgvector
+httpx
+numpy
+pillow
+datasets
+pydantic
+pytest

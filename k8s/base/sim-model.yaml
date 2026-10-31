@@ -1,0 +1,27 @@
+# Simulated Ollama (fixed latency, synthetic output). Delete this and set OLLAMA_URL to use real models.
+apiVersion: v1
+kind: Service
+metadata: {name: sim-model, namespace: docuflow}
+spec: {selector: {app: sim-model}, ports: [{port: 11434}]}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: sim-model, namespace: docuflow}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: sim-model}}
+  template:
+    metadata: {labels: {app: sim-model}}
+    spec:
+      priorityClassName: tenant-standard
+      containers:
+        - name: sim
+          image: docuflow:dev
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "docuflow.simmodel"]
+          env:
+            - {name: SIM_VLM_SECONDS, value: "8"}
+            - {name: SIM_LLM_SECONDS, value: "1.5"}
+          ports: [{containerPort: 11434}]
+          readinessProbe: {httpGet: {path: /health, port: 11434}, periodSeconds: 3}
+          resources: {requests: {cpu: 50m, memory: 96Mi}, limits: {memory: 256Mi}}

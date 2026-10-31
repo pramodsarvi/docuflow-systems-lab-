@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Service
+metadata: {name: api, namespace: docuflow}
+spec: {selector: {app: api}, ports: [{port: 8791}]}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: api, namespace: docuflow}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: api}}
+  template:
+    metadata: {labels: {app: api}}
+    spec:
+      priorityClassName: tenant-standard      # interactive queries outrank ingest workers (tenant-batch)
+      containers:
+        - name: api
+          image: docuflow:dev
+          imagePullPolicy: IfNotPresent
+          command: ["uvicorn", "docuflow.api:app", "--host", "0.0.0.0", "--port", "8791", "--log-level", "warning"]
+          envFrom: [{configMapRef: {name: docuflow-config}}]
+          env:
+            - name: DOCUFLOW_API_KEY
+              valueFrom: {secretKeyRef: {name: docuflow-api-key, key: key, optional: true}}   # unset = open API
+          ports: [{containerPort: 8791}]
+          readinessProbe: {httpGet: {path: /health, port: 8791}, periodSeconds: 3}
+          resources: {requests: {cpu: 100m, memory: 160Mi}, limits: {memory: 512Mi}}
+---
+# Plain HPA on CPU, same style as the batch tenant in the llm-d project.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: {name: api, namespace: docuflow}
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: api}
+  minReplicas: 1
+  maxReplicas: 3
+  metrics: [{type: Resource, resource: {name: cpu, target: {type: Utilization, averageUtilization: 60}}}]

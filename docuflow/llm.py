@@ -4,6 +4,7 @@ Two backends behind one interface (see config.BACKEND): Ollama's native API, or 
 Transient failures (connection errors, 429, 5xx) are retried with backoff; the job queue retries anything beyond that."""
 import base64
 import json
+import os
 import re
 import time
 
@@ -12,7 +13,13 @@ import numpy as np
 
 from . import config
 
-_http = httpx.Client(timeout=httpx.Timeout(900, connect=10), limits=httpx.Limits(max_connections=64))
+# Model servers sit behind a Kubernetes Service, which balances per *connection*. With keep-alive, every worker stays
+# pinned to whichever replica it first reached, so a replica added by autoscaling gets almost no traffic (measured: one
+# vLLM replica at 16 running + 6 waiting while the new one had 2). Each call is seconds of GPU work, so a fresh
+# connection per request costs nothing noticeable and spreads load over every replica. MODEL_KEEPALIVE=1 restores pooling.
+_KEEPALIVE = os.environ.get("MODEL_KEEPALIVE", "0") == "1"
+_http = httpx.Client(timeout=httpx.Timeout(900, connect=10),
+                     limits=httpx.Limits(max_connections=64, max_keepalive_connections=20 if _KEEPALIVE else 0))
 _THINK = re.compile(r"<think>.*?</think>", re.S)
 QUERY_INSTRUCT = ("Instruct: Given a question about scanned documents (forms, letters, handwritten notes), "
                   "retrieve passages that answer it\nQuery: ")

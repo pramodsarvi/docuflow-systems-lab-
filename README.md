@@ -83,6 +83,25 @@ memory. The report covers ingest throughput, query latency during ingest (p50/p9
 (synthetic pages have known answers) and the full scaling timeline. The latest run is in
 [`docs/stress-report.md`](docs/stress-report.md).
 
+## Evaluation (RAGAS)
+
+`make ragas N=40` asks questions with known answers through the live agent (`POST /query`). It then scores them with
+RAGAS, judged by the cluster's own vLLM servers (`standard-model` as judge, `embed-model` for embeddings), so no
+external API is involved. Contexts are what the agent actually observed in its trace, so the context metrics grade its
+real retrieval. The latest report is in [`evals/ragas-report.md`](evals/ragas-report.md).
+
+| metric | v0.1 retrieval | current |
+|---|---|---|
+| exact match (reference value in the answer) | 0.900* | **0.975** |
+| faithfulness | 0.956 | **0.975** |
+| answer relevancy | 0.450 | **0.808** |
+| context precision / recall | 0.900 / 0.900 | **0.975 / 0.975** |
+
+\* measured after the tokenisation fix. Before it, only 17% of stress-test answers were correct: "INV-1005" was indexed as
+`inv` + `-1005` (a negative number), and the full-text branch took 30 arbitrary matches. The judge is a 4B model, so
+compare runs made with the same judge rather than reading the absolute values. `evals/run_eval.py` still covers
+extraction CER/F1 against the Hub datasets' ground truth and DocVQA exact-match QA.
+
 ## Repository layout
 
 ```
@@ -91,7 +110,7 @@ deploy/kind/         kind cluster with GPU passthrough      deploy/helm-values/ 
 k8s/base/            namespace, priority classes, Postgres, RabbitMQ, api, workers, KEDA, gc CronJob, PDBs, NetworkPolicies
 k8s/components/      models (vLLM + KEDA) · simulator · monitoring (monitors, alerts, Grafana dashboard) · ingress
 k8s/overlays/        local-gpu (this machine) · ci-sim (CPU-only/CI) · prod (whole GPUs, TLS, backups, external secrets)
-scripts/             cluster-up.sh · smoke.sh · stress.py
+scripts/             cluster-up.sh · smoke.sh · stress.py          evals/   ragas_eval.py · run_eval.py · reports
 .github/workflows/   lint + tests (Postgres + RabbitMQ services), manifest validation, image build, kind e2e
 ```
 

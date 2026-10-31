@@ -7,7 +7,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata: {name: worker-io, labels: {app: worker-io}}
 spec:
-  replicas: 0
+  # no `replicas`: KEDA owns it, and a value here would reset the live count on every `kubectl apply`
   revisionHistoryLimit: 5
   selector: {matchLabels: {app: worker-io}}
   template:
@@ -39,7 +39,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata: {name: worker-vlm, labels: {app: worker-vlm}}
 spec:
-  replicas: 0
+  # no `replicas`: KEDA owns it, and a value here would reset the live count on every `kubectl apply`
   revisionHistoryLimit: 5
   selector: {matchLabels: {app: worker-vlm}}
   template:
@@ -71,7 +71,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata: {name: worker-embed, labels: {app: worker-embed}}
 spec:
-  replicas: 0
+  # no `replicas`: KEDA owns it, and a value here would reset the live count on every `kubectl apply`
   revisionHistoryLimit: 5
   selector: {matchLabels: {app: worker-embed}}
   template:

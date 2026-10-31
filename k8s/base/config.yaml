@@ -8,14 +8,15 @@ data:
   VLM_MODEL: gemma4:e2b-mlx
   LLM_MODEL: qwen3:4b-instruct
   EMBED_MODEL: qwen3-embedding:0.6b
-  # On Kubernetes the pod count (KEDA) is the real concurrency limit; in-app limits only need to sit above the max replicas.
-  LIMIT_IO: "8"
-  LIMIT_VLM: "16"
-  LIMIT_EMBED: "8"
-  PROCS_IO: "8"
-  PROCS_VLM: "16"
-  PROCS_EMBED: "8"
-  PER_DATASET_CAP: "8"
+  # On Kubernetes the pod count (KEDA) is the real concurrency limit; in-app limits must sit above the max replicas,
+  # otherwise extra pods start but stay idle (seen in the stress test: 12 vlm pods, 8 working, with a cap of 8).
+  LIMIT_IO: "16"
+  LIMIT_VLM: "64"
+  LIMIT_EMBED: "16"
+  PROCS_IO: "16"
+  PROCS_VLM: "64"
+  PROCS_EMBED: "16"
+  PER_DATASET_CAP: "64"   # per-dataset fairness cap; must also sit above worker-vlm maxReplicaCount
   # Queries run on their own model servers (model-llm, model-embed), so page reading does not need to pause for them
   # (the local single-machine default does, because one Ollama serves everything).
   YIELD_TO_QUERIES: "0"

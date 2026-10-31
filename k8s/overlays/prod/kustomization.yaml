@@ -36,6 +36,11 @@ patches:
       apiVersion: v1
       kind: PersistentVolume
       metadata: {name: docuflow-model-cache}
+  - target: {kind: ConfigMap, name: docuflow-config}
+    patch: |-
+      - {op: replace, path: /data/PER_DATASET_CAP, value: "128"}
+      - {op: replace, path: /data/LIMIT_VLM, value: "128"}
+      - {op: replace, path: /data/PROCS_VLM, value: "128"}
   - target: {kind: ScaledObject, name: worker-vlm}
     patch: |-
       - {op: replace, path: /spec/maxReplicaCount, value: 48}   # up to 48 concurrent page reads -> model-vlm 3-4 replicas

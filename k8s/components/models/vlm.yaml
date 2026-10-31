@@ -10,7 +10,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata: {name: model-vlm, labels: {app: model-vlm}}
 spec:
-  replicas: 1            # KEDA owns the replica count (autoscaling.yaml)
+  # no `replicas`: KEDA owns it (autoscaling.yaml); a value here would reset the live count on every `kubectl apply`
   strategy: {type: RollingUpdate, rollingUpdate: {maxUnavailable: 0, maxSurge: 1}}
   selector: {matchLabels: {app: model-vlm}}
   template:

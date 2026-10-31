@@ -1,0 +1,70 @@
+# vLLM container for page reading: Qwen/Qwen2.5-VL-3B-Instruct served as `vlm-model` (OpenAI-compatible API on :8000).
+apiVersion: v1
+kind: Service
+metadata: {name: model-vlm, labels: {app: model-vlm}}
+spec:
+  selector: {app: model-vlm}
+  ports: [{name: http, port: 8000, targetPort: http}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: model-vlm, labels: {app: model-vlm}}
+spec:
+  replicas: 1            # KEDA owns the replica count (autoscaling.yaml)
+  strategy: {type: RollingUpdate, rollingUpdate: {maxUnavailable: 0, maxSurge: 1}}
+  selector: {matchLabels: {app: model-vlm}}
+  template:
+    metadata:
+      labels: {app: model-vlm, app.kubernetes.io/component: model-server, docuflow-model: vlm}
+      annotations: {prometheus.io/scrape: "true", prometheus.io/port: "8000", prometheus.io/path: /metrics}
+    spec:
+      serviceAccountName: docuflow
+      priorityClassName: docuflow-interactive
+      terminationGracePeriodSeconds: 60
+      nodeSelector: {docuflow.io/pool: gpu}
+      tolerations: [{key: nvidia.com/gpu, operator: Exists, effect: NoSchedule}]
+      securityContext: {seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:v0.13.0      # CUDA 12.9 build; runs on driver >= 570 (newer tags need CUDA 13 drivers)
+          imagePullPolicy: IfNotPresent
+          args:
+            - "--model"
+            - "Qwen/Qwen2.5-VL-3B-Instruct"
+            - "--served-model-name"
+            - "vlm-model"
+            - "--host"
+            - "0.0.0.0"
+            - "--port"
+            - "8000"
+            - "--gpu-memory-utilization"
+            - "0.28"
+            - "--kv-cache-memory-bytes"
+            - "3221225472"
+            - "--max-model-len"
+            - "12288"
+            - "--max-num-seqs"
+            - "16"
+            - "--limit-mm-per-prompt"
+            - "{\"image\": 1}"
+            - "--mm-processor-kwargs"
+            - "{\"max_pixels\": 1638400}"
+          env:
+            - {name: HF_HOME, value: /models/hf}
+            - {name: VLLM_NO_USAGE_STATS, value: "1"}
+            - {name: HF_TOKEN, valueFrom: {secretKeyRef: {name: docuflow-secrets, key: HF_TOKEN, optional: true}}}
+          ports: [{name: http, containerPort: 8000}]
+          # first start downloads the weights (minutes); later starts load from the cache in ~1 minute
+          startupProbe: {httpGet: {path: /health, port: http}, periodSeconds: 10, failureThreshold: 180}
+          readinessProbe: {httpGet: {path: /health, port: http}, periodSeconds: 10}
+          livenessProbe: {httpGet: {path: /health, port: http}, periodSeconds: 20, failureThreshold: 6}
+          resources:
+            requests: {cpu: "1", memory: 16Gi, nvidia.com/gpu: 1}
+            limits: {memory: 16Gi, nvidia.com/gpu: 1}
+          securityContext: {allowPrivilegeEscalation: false}
+          volumeMounts:
+            - {name: cache, mountPath: /models}
+            - {name: shm, mountPath: /dev/shm}
+      volumes:
+        - {name: cache, persistentVolumeClaim: {claimName: model-cache}}
+        - {name: shm, emptyDir: {medium: Memory, sizeLimit: 4Gi}}

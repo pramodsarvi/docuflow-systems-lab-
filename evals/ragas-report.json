@@ -1,0 +1,1040 @@
+[
+ {
+  "question": "Which city is listed on PUR-1331?",
+  "gold": [
+   "Lyon"
+  ],
+  "reference": "The city listed on PUR-1331 is Lyon.",
+  "doc_id": "synthetic/gen/331",
+  "source": "synthetic",
+  "answer": "The city listed on PUR-1331 is Lyon.",
+  "citations": [
+   "synthetic/gen/331"
+  ],
+  "contexts": [
+   "[synthetic/gen/331] (synthetic, en, printed) (printed/label) PURCHASE ORDER 331\n(printed/label) Number:\n(printed/value) PUR-1331\n(printed/label) Name:\n(printed/value) Lars Tanaka\n(printed/label) City:\n(printed/value) Lyon\n(printed/label) Amount:\n(printed/value) 1744 dollars\n(printed/label) Date:\n(printed/value) 2026-11-16\n(printed/label) Signed by:\n(printed/value) Carlos Adeyemi\n[synthetic/gen/371] (synthetic, en, printed) (printed/label) ... PUR-1371\n(printed/label) Purchase Order 371\n(printed/label) Number:\n(printed/value) PUR-1371\n(printed/label) Name:\n(printed/value) Fatima Adeyemi\n(printed/label) City:\n(printed/value) Quito\n(printed/label) Amount:\n(printed/value) 6787 dollars\n(printed/label) Date:\n(printed/value) 2026-10-04\n(printed/label) Signed by:\n(printed/value) Pierre Berg\n[synthetic/gen/71] (synthetic, en, printed) (printed/label) PURCHASE ORDER 71\n(printed/label) Number:\n(printed/value) PUR-1071\n(printed/label) Name:\n(printed/value) Lars Chen\n(printed/label) City:\n(printed/value) Porto\n(printed/label) Amount:\n(printed/value) 188 dollars\n(printed/label) Date:\n(printed/value) 2026-05-05\n(printed/label) Signed by:\n(printed/value) Pierre Khan\n[synthetic/gen/51] (synthetic, en, printed) (printed/label) PURCHASE ORDER 51\n(printed/label) Number:\n(printed/value) PUR-1051\n(printed/label) Name:\n(printed/value) Pierre Chen\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 2703 dollars\n(printed/label) Date:\n(printed/value) 2026-04-27\n(printed"
+  ],
+  "steps": 2,
+  "seconds": 2.94,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 0.994,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "Who signed document DEL-1154?",
+  "gold": [
+   "Maria Garcia"
+  ],
+  "reference": "Document DEL-1154 was signed by Maria Garcia.",
+  "doc_id": "synthetic/gen/154",
+  "source": "synthetic",
+  "answer": "Maria Garcia signed document DEL-1154.",
+  "citations": [
+   "synthetic/gen/154"
+  ],
+  "contexts": [
+   "[synthetic/gen/154] (synthetic, en, printed) (printed/label) DELIVERY NOTE 154\n(printed/label) Number:\n(printed/value) DEL-1154\n(printed/label) Name:\n(printed/value) Pierre Sharma\n(printed/label) City:\n(printed/value) Bergen\n(printed/label) Amount:\n(printed/value) 3454 dollars\n(printed/label) Date:\n(printed/value) 2026-08-17\n(printed/label) Signed by:\n(printed/value) Maria Garcia\n[synthetic/gen/44] (synthetic, en, printed) (printed/label) DELIVERY NOTE 44\n(printed/label) Number:\n(printed/value) DEL-1044\n(printed/label) Name:\n(printed/value) Priya Chen\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 1961 dollars\n(printed/label) Date:\n(printed/value) 2026-03-13\n(printed/label) Signed by:\n(printed/value) Pierre Khan\n[synthetic/gen/134] (synthetic, en, printed) (printed/label) DELIVERY NOTE 134\n(printed/label) Number:\n(printed/value) DEL-1134\n(printed/label) Name:\n(printed/value) Carlos Chen\n(printed/label) City:\n(printed/value) Lyon\n(printed/label) Amount:\n(printed/value) 2126 dollars\n(printed/label) Date:\n(printed/value) 2026-01-21\n(printed/label) Signed by:\n(printed/value) Carlos Smith\n[synthetic/gen/139] (synthetic, en, printed) (printed/label) DELIVERY NOTE 139\n(printed/label) Number:\n(printed/value) DEL-1139\n(printed/label) Name:\n(printed/value) Maria Adeyemi\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 5021 dollars\n(printed/label) Date:\n(printed/value) 2026-12-18\n(printed/label) Signed by:\n(printed/"
+  ],
+  "steps": 2,
+  "seconds": 3.68,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 0.548,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "Which city is listed on DEL-1404?",
+  "gold": [
+   "Oslo"
+  ],
+  "reference": "The city listed on DEL-1404 is Oslo.",
+  "doc_id": "synthetic/gen/404",
+  "source": "synthetic",
+  "answer": "The city listed on DEL-1404 is Oslo.",
+  "citations": [
+   "synthetic/gen/404"
+  ],
+  "contexts": [
+   "[synthetic/gen/404] (synthetic, en, printed) (printed/label) DELIVERY NOTE 404\n(printed/label) Number:\n(printed/value) DEL-1404\n(printed/label) Name:\n(printed/value) John Sharma\n(printed/label) City:\n(printed/value) Oslo\n(printed/label) Amount:\n(printed/value) 8533 dollars\n(printed/label) Date:\n(printed/value) 2026-02-22\n(printed/label) Signed by:\n(printed/value) Olu Smith\n[synthetic/gen/14] (synthetic, en, printed) (printed/label) ...DELIVERY NOTE 14\n(printed/label) Number:\n(printed/value) DEL-1014\n(printed/label) Name:\n(printed/value) John Adeyemi\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 4095 dollars\n(printed/label) Date:\n(printed/value) 2026-05-24\n(printed/label) Signed by:\n(printed/value) Fatima Khan\n[synthetic/gen/44] (synthetic, en, printed) (printed/label) DELIVERY NOTE 44\n(printed/label) Number:\n(printed/value) DEL-1044\n(printed/label) Name:\n(printed/value) Priya Chen\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 1961 dollars\n(printed/label) Date:\n(printed/value) 2026-03-13\n(printed/label) Signed by:\n(printed/value) Pierre Khan\n[synthetic/gen/54] (synthetic, en, printed) (printed/label) DELIVERY NOTE 54\n(printed/label) Number:\n(printed/value) DEL-1054\n(printed/label) Name:\n(printed/value) Aiko Garcia\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 4931 dollars\n(printed/label) Date:\n(printed/value) 2026-08-16\n(printed/label) Signed by:\n(printed/value) Pr"
+  ],
+  "steps": 2,
+  "seconds": 3.74,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 0.99,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "What is the amount on PUR-1666?",
+  "gold": [
+   "4694"
+  ],
+  "reference": "The amount on PUR-1666 is 4694 dollars.",
+  "doc_id": "synthetic/gen/666",
+  "source": "synthetic",
+  "answer": "The amount on PUR-1666 is 4694 dollars.",
+  "citations": [
+   "synthetic/gen/666"
+  ],
+  "contexts": [
+   "[synthetic/gen/666] (synthetic, en, printed) (printed/label) PURCHASE ORDER 666\n(printed/label) Number:\n(printed/value) PUR-1666\n(printed/label) Name:\n(printed/value) Carlos Sharma\n(printed/label) City:\n(printed/value) Quito\n(printed/label) Amount:\n(printed/value) 4694 dollars\n(printed/label) Date:\n(printed/value) 2026-09-01\n(printed/label) Signed by:\n(printed/value) Mei Chen\n[synthetic/gen/136] (synthetic, en, printed) (printed/label) PURCHASE ORDER 136\n(printed/label) Number:\n(printed/value) PUR-1136\n(printed/label) Name:\n(printed/value) Olu Sharma\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 1044 dollars\n(printed/label) Date:\n(printed/value) 2026-07-16\n(printed/label) Signed by:\n(printed/value) Pierre Sharma\n[synthetic/gen/371] (synthetic, en, printed) (printed/label) ... PUR-1371\n(printed/label) Purchase Order 371\n(printed/label) Number:\n(printed/value) PUR-1371\n(printed/label) Name:\n(printed/value) Fatima Adeyemi\n(printed/label) City:\n(printed/value) Quito\n(printed/label) Amount:\n(printed/value) 6787 dollars\n(printed/label) Date:\n(printed/value) 2026-10-04\n(printed/label) Signed by:\n(printed/value) Pierre Berg\n[synthetic/gen/646] (synthetic, en, printed) (printed/label) PURCHASE ORDER 646\n(printed/label) Number:\n(printed/value) PUR-1646\n(printed/label) Name:\n(printed/value) Olu Adeyemi\n(printed/label) City:\n(printed/value) Austin\n(printed/label) Amount:\n(printed/value) 8681 dollars\n(printed/label) Date:\n(printed/value) 2026-10-07\n(p"
+  ],
+  "steps": 2,
+  "seconds": 3.07,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 1.0,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "Which city is listed on DEL-1049?",
+  "gold": [
+   "Quito"
+  ],
+  "reference": "The city listed on DEL-1049 is Quito.",
+  "doc_id": "synthetic/gen/49",
+  "source": "synthetic",
+  "answer": "The city listed on DEL-1049 is Quito.",
+  "citations": [
+   "synthetic/gen/49"
+  ],
+  "contexts": [
+   "[synthetic/gen/49] (synthetic, en, printed) (printed/label) DELIVERY NOTE 49\n(printed/label) Number:\n(printed/value) DEL-1049\n(printed/label) Name:\n(printed/value) John Berg\n(printed/label) City:\n(printed/value) Quito\n(printed/label) Amount:\n(printed/value) 1860 dollars\n(printed/label) Date:\n(printed/value) 2026-06-25\n(printed/label) Signed by:\n(printed/value) Mei Chen\n[synthetic/gen/14] (synthetic, en, printed) (printed/label) ...DELIVERY NOTE 14\n(printed/label) Number:\n(printed/value) DEL-1014\n(printed/label) Name:\n(printed/value) John Adeyemi\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 4095 dollars\n(printed/label) Date:\n(printed/value) 2026-05-24\n(printed/label) Signed by:\n(printed/value) Fatima Khan\n[synthetic/gen/44] (synthetic, en, printed) (printed/label) DELIVERY NOTE 44\n(printed/label) Number:\n(printed/value) DEL-1044\n(printed/label) Name:\n(printed/value) Priya Chen\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 1961 dollars\n(printed/label) Date:\n(printed/value) 2026-03-13\n(printed/label) Signed by:\n(printed/value) Pierre Khan\n[synthetic/gen/54] (synthetic, en, printed) (printed/label) DELIVERY NOTE 54\n(printed/label) Number:\n(printed/value) DEL-1054\n(printed/label) Name:\n(printed/value) Aiko Garcia\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 4931 dollars\n(printed/label) Date:\n(printed/value) 2026-08-16\n(printed/label) Signed by:\n(printed/value) Priya "
+  ],
+  "steps": 2,
+  "seconds": 3.5,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 0.986,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "Which city is listed on DEL-1074?",
+  "gold": [
+   "Lagos"
+  ],
+  "reference": "The city listed on DEL-1074 is Lagos.",
+  "doc_id": "synthetic/gen/74",
+  "source": "synthetic",
+  "answer": "The city listed on DEL-1074 is Lagos.",
+  "citations": [
+   "synthetic/gen/74"
+  ],
+  "contexts": [
+   "[synthetic/gen/74] (synthetic, en, printed) (printed/label) DELIVERY NOTE 74\n(printed/label) Number:\n(printed/value) DEL-1074\n(printed/label) Name:\n(printed/value) Olu Chen\n(printed/label) City:\n(printed/value) Lagos\n(printed/label) Amount:\n(printed/value) 5280 dollars\n(printed/label) Date:\n(printed/value) 2026-02-26\n(printed/label) Signed by:\n(printed/value) Fatima Tanaka\n[synthetic/gen/79] (synthetic, en, printed) (printed/label) DELIVERY NOTE 79\n(printed/label) Number:\n(printed/value) DEL-1079\n(printed/label) Name:\n(printed/value) Aiko Garcia\n(printed/label) City:\n(printed/value) Austin\n(printed/label) Amount:\n(printed/value) 2719 dollars\n(printed/label) Date:\n(printed/value) 2026-04-08\n(printed/label) Signed by:\n(printed/value) Carlos Tanaka\n[synthetic/gen/14] (synthetic, en, printed) (printed/label) ...DELIVERY NOTE 14\n(printed/label) Number:\n(printed/value) DEL-1014\n(printed/label) Name:\n(printed/value) John Adeyemi\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 4095 dollars\n(printed/label) Date:\n(printed/value) 2026-05-24\n(printed/label) Signed by:\n(printed/value) Fatima Khan\n[synthetic/gen/44] (synthetic, en, printed) (printed/label) DELIVERY NOTE 44\n(printed/label) Number:\n(printed/value) DEL-1044\n(printed/label) Name:\n(printed/value) Priya Chen\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 1961 dollars\n(printed/label) Date:\n(printed/value) 2026-03-13\n(printed/label) Signed by:\n(printed/value)"
+  ],
+  "steps": 3,
+  "seconds": 5.56,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 0.987,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "Who signed document EXP-1548?",
+  "gold": [
+   "Priya Chen"
+  ],
+  "reference": "Document EXP-1548 was signed by Priya Chen.",
+  "doc_id": "synthetic/gen/548",
+  "source": "synthetic",
+  "answer": "Priya Chen signed document EXP-1548.",
+  "citations": [
+   "synthetic/gen/548"
+  ],
+  "contexts": [
+   "[synthetic/gen/548] (synthetic, en, printed) (printed/label) ...\n(printed/label) EXPENSE CLAIM 548\n(printed/label) Number:\n(printed/value) EXP-1548\n(printed/label) Name:\n(printed/value) Maria Lopez\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 2475 dollars\n(printed/label) Date:\n(printed/value) 2026-02-28\n(printed/label) Signed by:\n(printed/value) Priya Chen\n[synthetic/gen/28] (synthetic, en, printed) (printed/label) ...\n(printed/label) EXPENSE CLAIM 28\n(printed/label) Number:\n(printed/value) EXP-1028\n(printed/label) Name:\n(printed/value) John Tanaka\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 2967 dollars\n(printed/label) Date:\n(printed/value) 2026-04-05\n(printed/label) Signed by:\n(printed/value) Carlos Sharma\n[synthetic/gen/48] (synthetic, en, printed) (printed/label) ...\n(printed/label) EXPENSE CLAIM 48\n(printed/label) Number:\n(printed/value) EXP-1048\n(printed/label) Name:\n(printed/value) Mei Berg\n(printed/label) City:\n(printed/value) Pune\n(printed/label) Amount:\n(printed/value) 8811 dollars\n(printed/label) Date:\n(printed/value) 2026-05-26\n(printed/label) Signed by:\n(printed/value) Mei Dubois\n[synthetic/gen/138] (synthetic, en, printed) (printed/label) ...\n(printed/label) EXPENSE CLAIM 138\n(printed/label) Number:\n(printed/value) EXP-1138\n(printed/label) Name:\n(printed/value) Pierre Sharma\n(printed/label) City:\n(printed/value) Bergen\n(printed/label) Amount:\n(printed/value) 4989 dollars\n(printed/labe"
+  ],
+  "steps": 2,
+  "seconds": 4.05,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 0.565,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "Who signed document PUR-1096?",
+  "gold": [
+   "Lars Lopez"
+  ],
+  "reference": "Document PUR-1096 was signed by Lars Lopez.",
+  "doc_id": "synthetic/gen/96",
+  "source": "synthetic",
+  "answer": "Lars Lopez signed document PUR-1096.",
+  "citations": [
+   "synthetic/gen/96"
+  ],
+  "contexts": [
+   "[synthetic/gen/96] (synthetic, en, printed) (printed/label) PURCHASE ORDER 96\n(printed/label) Number:\n(printed/value) PUR-1096\n(printed/label) Name:\n(printed/value) Lars Berg\n(printed/label) City:\n(printed/value) Quito\n(printed/label) Amount:\n(printed/value) 3425 dollars\n(printed/label) Date:\n(printed/value) 2026-02-27\n(printed/label) Signed by:\n(printed/value) Lars Lopez\n[synthetic/gen/371] (synthetic, en, printed) (printed/label) ... PUR-1371\n(printed/label) Purchase Order 371\n(printed/label) Number:\n(printed/value) PUR-1371\n(printed/label) Name:\n(printed/value) Fatima Adeyemi\n(printed/label) City:\n(printed/value) Quito\n(printed/label) Amount:\n(printed/value) 6787 dollars\n(printed/label) Date:\n(printed/value) 2026-10-04\n(printed/label) Signed by:\n(printed/value) Pierre Berg\n[synthetic/gen/71] (synthetic, en, printed) (printed/label) PURCHASE ORDER 71\n(printed/label) Number:\n(printed/value) PUR-1071\n(printed/label) Name:\n(printed/value) Lars Chen\n(printed/label) City:\n(printed/value) Porto\n(printed/label) Amount:\n(printed/value) 188 dollars\n(printed/label) Date:\n(printed/value) 2026-05-05\n(printed/label) Signed by:\n(printed/value) Pierre Khan\n[synthetic/gen/21] (synthetic, en, printed) (printed/label) PURCHASE ORDER 21\n(printed/label) Number:\n(printed/value) PUR-1021\n(printed/label) Name:\n(printed/value) Aiko Sharma\n(printed/label) City:\n(printed/value) Quito\n(printed/label) Amount:\n(printed/value) 4658 dollars\n(printed/label) Date:\n(printed/value) 2026-08-27\n(printed/label)"
+  ],
+  "steps": 2,
+  "seconds": 3.35,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 0.56,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "Which city is listed on DEL-1374?",
+  "gold": [
+   "Delhi"
+  ],
+  "reference": "The city listed on DEL-1374 is Delhi.",
+  "doc_id": "synthetic/gen/374",
+  "source": "synthetic",
+  "answer": "Delhi",
+  "citations": [
+   "synthetic/gen/374"
+  ],
+  "contexts": [
+   "[synthetic/gen/374] (synthetic, en, printed) (printed/label) DELIVERY NOTE 374\n(printed/label) Number:\n(printed/value) DEL-1374\n(printed/label) Name:\n(printed/value) Lars Tanaka\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 2200 dollars\n(printed/label) Date:\n(printed/value) 2026-03-28\n(printed/label) Signed by:\n(printed/value) Mei Chen\n[synthetic/gen/44] (synthetic, en, printed) (printed/label) DELIVERY NOTE 44\n(printed/label) Number:\n(printed/value) DEL-1044\n(printed/label) Name:\n(printed/value) Priya Chen\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 1961 dollars\n(printed/label) Date:\n(printed/value) 2026-03-13\n(printed/label) Signed by:\n(printed/value) Pierre Khan\n[synthetic/gen/34] (synthetic, en, printed) (printed/label) DELIVERY NOTE 34\n(printed/label) Number:\n(printed/value) DEL-1034\n(printed/label) Name:\n(printed/value) Mei Berg\n(printed/label) City:\n(printed/value) Porto\n(printed/label) Amount:\n(printed/value) 503 dollars\n(printed/label) Date:\n(printed/value) 2026-04-01\n(printed/label) Signed by:\n(printed/value) Priya Berg\n[synthetic/gen/139] (synthetic, en, printed) (printed/label) DELIVERY NOTE 139\n(printed/label) Number:\n(printed/value) DEL-1139\n(printed/label) Name:\n(printed/value) Maria Adeyemi\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 5021 dollars\n(printed/label) Date:\n(printed/value) 2026-12-18\n(printed/label) Signed by:\n(printed/value) Maria C"
+  ],
+  "steps": 2,
+  "seconds": 2.96,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 0.445,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "Which city is listed on PUR-1596?",
+  "gold": [
+   "Pune"
+  ],
+  "reference": "The city listed on PUR-1596 is Pune.",
+  "doc_id": "synthetic/gen/596",
+  "source": "synthetic",
+  "answer": "The city listed on PUR-1596 is Pune.",
+  "citations": [
+   "synthetic/gen/596"
+  ],
+  "contexts": [
+   "[synthetic/gen/596] (synthetic, en, printed) (printed/label) PURCHASE ORDER 596\n(printed/label) Number:\n(printed/value) PUR-1596\n(printed/label) Name:\n(printed/value) Priya Tanaka\n(printed/label) City:\n(printed/value) Pune\n(printed/label) Amount:\n(printed/value) 2394 dollars\n(printed/label) Date:\n(printed/value) 2026-03-22\n(printed/label) Signed by:\n(printed/value) Pierre Dubois\n[synthetic/gen/111] (synthetic, en, printed) (printed/label) PURCHASE ORDER 111\n(printed/label) Number:\n(printed/value) PUR-1111\n(printed/label) Name:\n(printed/value) Pierre Berg\n(printed/label) City:\n(printed/value) Bergen\n(printed/label) Amount:\n(printed/value) 3231 dollars\n(printed/label) Date:\n(printed/value) 2026-07-14\n(printed/label) Signed by:\n(printed/value) Olu Tanaka\n[synthetic/gen/536] (synthetic, en, printed) (printed/label) PURCHASE ORDER 536\n(printed/label) Number:\n(printed/value) PUR-1536\n(printed/label) Name:\n(printed/value) Pierre Chen\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 70 dollars\n(printed/label) Date:\n(printed/value) 2026-09-26\n(printed/label) Signed by:\n(printed/value) Priya Sharma\n[synthetic/gen/371] (synthetic, en, printed) (printed/label) ... PUR-1371\n(printed/label) Purchase Order 371\n(printed/label) Number:\n(printed/value) PUR-1371\n(printed/label) Name:\n(printed/value) Fatima Adeyemi\n(printed/label) City:\n(printed/value) Quito\n(printed/label) Amount:\n(printed/value) 6787 dollars\n(printed/label) Date:\n(printed/value) 2026-10-04\n(p"
+  ],
+  "steps": 2,
+  "seconds": 2.68,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 0.991,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "Which city is listed on DEL-1059?",
+  "gold": [
+   "Bergen"
+  ],
+  "reference": "The city listed on DEL-1059 is Bergen.",
+  "doc_id": "synthetic/gen/59",
+  "source": "synthetic",
+  "answer": "The city listed on DEL-1059 is Bergen.",
+  "citations": [
+   "synthetic/gen/59"
+  ],
+  "contexts": [
+   "[synthetic/gen/59] (synthetic, en, printed) (printed/label) DELIVERY NOTE 59\n(printed/label) Number:\n(printed/value) DEL-1059\n(printed/label) Name:\n(printed/value) Pierre Smith\n(printed/label) City:\n(printed/value) Bergen\n(printed/label) Amount:\n(printed/value) 422 dollars\n(printed/label) Date:\n(printed/value) 2026-03-28\n(printed/label) Signed by:\n(printed/value) Fatima Lopez\n[synthetic/gen/14] (synthetic, en, printed) (printed/label) ...DELIVERY NOTE 14\n(printed/label) Number:\n(printed/value) DEL-1014\n(printed/label) Name:\n(printed/value) John Adeyemi\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 4095 dollars\n(printed/label) Date:\n(printed/value) 2026-05-24\n(printed/label) Signed by:\n(printed/value) Fatima Khan\n[synthetic/gen/54] (synthetic, en, printed) (printed/label) DELIVERY NOTE 54\n(printed/label) Number:\n(printed/value) DEL-1054\n(printed/label) Name:\n(printed/value) Aiko Garcia\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 4931 dollars\n(printed/label) Date:\n(printed/value) 2026-08-16\n(printed/label) Signed by:\n(printed/value) Priya Dubois\n[synthetic/gen/44] (synthetic, en, printed) (printed/label) DELIVERY NOTE 44\n(printed/label) Number:\n(printed/value) DEL-1044\n(printed/label) Name:\n(printed/value) Priya Chen\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 1961 dollars\n(printed/label) Date:\n(printed/value) 2026-03-13\n(printed/label) Signed by:\n(printed/value"
+  ],
+  "steps": 2,
+  "seconds": 3.76,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 0.988,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "Who signed document DEL-1519?",
+  "gold": [
+   "Fatima Chen"
+  ],
+  "reference": "Document DEL-1519 was signed by Fatima Chen.",
+  "doc_id": "synthetic/gen/519",
+  "source": "synthetic",
+  "answer": "Fatima Chen signed document DEL-1519.",
+  "citations": [
+   "synthetic/gen/519"
+  ],
+  "contexts": [
+   "[synthetic/gen/519] (synthetic, en, printed) (printed/label) DELIVERY NOTE 519\n(printed/label) Number:\n(printed/value) DEL-1519\n(printed/label) Name:\n(printed/value) Olu Garcia\n(printed/label) City:\n(printed/value) Oslo\n(printed/label) Amount:\n(printed/value) 5460 dollars\n(printed/label) Date:\n(printed/value) 2026-04-05\n(printed/label) Signed by:\n(printed/value) Fatima Chen\n[synthetic/gen/139] (synthetic, en, printed) (printed/label) DELIVERY NOTE 139\n(printed/label) Number:\n(printed/value) DEL-1139\n(printed/label) Name:\n(printed/value) Maria Adeyemi\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 5021 dollars\n(printed/label) Date:\n(printed/value) 2026-12-18\n(printed/label) Signed by:\n(printed/value) Maria Chen\n[synthetic/gen/119] (synthetic, en, printed) (printed/label) DELIVERY NOTE 119\n(printed/label) Number:\n(printed/value) DEL-1119\n(printed/label) Name:\n(printed/value) Fatima Tanaka\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 7139 dollars\n(printed/label) Date:\n(printed/value) 2026-02-03\n(printed/label) Signed by:\n(printed/value) Priya Dubois\n[synthetic/gen/579] (synthetic, en, printed) (printed/label) DELIVERY NOTE 579\n(printed/label) Number:\n(printed/value) DEL-1579\n(printed/label) Name:\n(printed/value) Lars Sharma\n(printed/label) City:\n(printed/value) Bergen\n(printed/label) Amount:\n(printed/value) 2357 dollars\n(printed/label) Date:\n(printed/value) 2026-11-11\n(printed/label) Signed by:\n(printed/"
+  ],
+  "steps": 2,
+  "seconds": 3.48,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 0.511,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "What is the amount on DEL-1219?",
+  "gold": [
+   "5435"
+  ],
+  "reference": "The amount on DEL-1219 is 5435 dollars.",
+  "doc_id": "synthetic/gen/219",
+  "source": "synthetic",
+  "answer": "The amount on DEL-1219 is 5435 dollars.",
+  "citations": [
+   "synthetic/gen/219"
+  ],
+  "contexts": [
+   "[synthetic/gen/219] (synthetic, en, printed) (printed/label) DELIVERY NOTE 219\n(printed/label) Number:\n(printed/value) DEL-1219\n(printed/label) Name:\n(printed/value) Lars Chen\n(printed/label) City:\n(printed/value) Oslo\n(printed/label) Amount:\n(printed/value) 5435 dollars\n(printed/label) Date:\n(printed/value) 2026-12-24\n(printed/label) Signed by:\n(printed/value) John Khan\n[synthetic/gen/44] (synthetic, en, printed) (printed/label) DELIVERY NOTE 44\n(printed/label) Number:\n(printed/value) DEL-1044\n(printed/label) Name:\n(printed/value) Priya Chen\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 1961 dollars\n(printed/label) Date:\n(printed/value) 2026-03-13\n(printed/label) Signed by:\n(printed/value) Pierre Khan\n[synthetic/gen/139] (synthetic, en, printed) (printed/label) DELIVERY NOTE 139\n(printed/label) Number:\n(printed/value) DEL-1139\n(printed/label) Name:\n(printed/value) Maria Adeyemi\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 5021 dollars\n(printed/label) Date:\n(printed/value) 2026-12-18\n(printed/label) Signed by:\n(printed/value) Maria Chen\n[synthetic/gen/69] (synthetic, en, printed) (printed/label) DELIVERY NOTE 69\n(printed/label) Number:\n(printed/value) DEL-1069\n(printed/label) Name:\n(printed/value) Maria Smith\n(printed/label) City:\n(printed/value) Pune\n(printed/label) Amount:\n(printed/value) 1142 dollars\n(printed/label) Date:\n(printed/value) 2026-10-12\n(printed/label) Signed by:\n(printed/value) Lars C"
+  ],
+  "steps": 2,
+  "seconds": 3.26,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 1.0,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "Who signed document EXP-1038?",
+  "gold": [
+   "Carlos Berg"
+  ],
+  "reference": "Document EXP-1038 was signed by Carlos Berg.",
+  "doc_id": "synthetic/gen/38",
+  "source": "synthetic",
+  "answer": "Carlos Berg signed document EXP-1038.",
+  "citations": [
+   "synthetic/gen/38"
+  ],
+  "contexts": [
+   "[synthetic/gen/38] (synthetic, en, printed) (printed/label) ...\n(printed/label) EXPENSE CLAIM 38\n(printed/label) Number:\n(printed/value) EXP-1038\n(printed/label) Name:\n(printed/value) Priya Sharma\n(printed/label) City:\n(printed/value) Lagos\n(printed/label) Amount:\n(printed/value) 1135 dollars\n(printed/label) Date:\n(printed/value) 2026-06-23\n(printed/label) Signed by:\n(printed/value) Carlos Berg\n[synthetic/gen/33] (synthetic, en, printed) (printed/label) ...\n(printed/label) EXPENSE CLAIM 33\n(printed/label) Number:\n(printed/value) EXP-1033\n(printed/label) Name:\n(printed/value) Olu Tanaka\n(printed/label) City:\n(printed/value) Lyon\n(printed/label) Amount:\n(printed/value) 4593 dollars\n(printed/label) Date:\n(printed/value) 2026-08-21\n(printed/label) Signed by:\n(printed/value) Mei Chen\n[synthetic/gen/3] (synthetic, en, printed) (printed/label) ...\n(printed/label) EXPENSE CLAIM 3\n(printed/label) Number:\n(printed/value) EXP-1003\n(printed/label) Name:\n(printed/value) Pierre Adeyemi\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 2186 dollars\n(printed/label) Date:\n(printed/value) 2026-06-20\n(printed/label) Signed by:\n(printed/value) Carlos Adeyemi\n[synthetic/gen/88] (synthetic, en, printed) (printed/label) ...\n(printed/label) EXPENSE CLAIM 88\n(printed/label) Number:\n(printed/value) EXP-1088\n(printed/label) Name:\n(printed/value) Priya Dubois\n(printed/label) City:\n(printed/value) Austin\n(printed/label) Amount:\n(printed/value) 3080 dollars\n(printed/label"
+  ],
+  "steps": 2,
+  "seconds": 3.85,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 0.572,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "Which city is listed on EXP-1088?",
+  "gold": [
+   "Austin"
+  ],
+  "reference": "The city listed on EXP-1088 is Austin.",
+  "doc_id": "synthetic/gen/88",
+  "source": "synthetic",
+  "answer": "The city listed on EXP-1088 is Austin.",
+  "citations": [
+   "synthetic/gen/88"
+  ],
+  "contexts": [
+   "[synthetic/gen/88] (synthetic, en, printed) (printed/label) ...\n(printed/label) EXPENSE CLAIM 88\n(printed/label) Number:\n(printed/value) EXP-1088\n(printed/label) Name:\n(printed/value) Priya Dubois\n(printed/label) City:\n(printed/value) Austin\n(printed/label) Amount:\n(printed/value) 3080 dollars\n(printed/label) Date:\n(printed/value) 2026-11-01\n(printed/label) Signed by:\n(printed/value) Mei Lopez\n[synthetic/gen/48] (synthetic, en, printed) (printed/label) ...\n(printed/label) EXPENSE CLAIM 48\n(printed/label) Number:\n(printed/value) EXP-1048\n(printed/label) Name:\n(printed/value) Mei Berg\n(printed/label) City:\n(printed/value) Pune\n(printed/label) Amount:\n(printed/value) 8811 dollars\n(printed/label) Date:\n(printed/value) 2026-05-26\n(printed/label) Signed by:\n(printed/value) Mei Dubois\n[synthetic/gen/58] (synthetic, en, printed) (printed/label) ...\n(printed/label) EXPENSE CLAIM 58\n(printed/label) Number:\n(printed/value) EXP-1058\n(printed/label) Name:\n(printed/value) Olu Dubois\n(printed/label) City:\n(printed/value) Lyon\n(printed/label) Amount:\n(printed/value) 3345 dollars\n(printed/label) Date:\n(printed/value) 2026-01-07\n(printed/label) Signed by:\n(printed/value) Carlos Sharma\n[synthetic/gen/8] (synthetic, en, printed) (printed/label) ...\n(printed/label) EXPENSE CLAIM 8\n(printed/label) Number:\n(printed/value) EXP-1008\n(printed/label) Name:\n(printed/value) Pierre Berg\n(printed/label) City:\n(printed/value) Quito\n(printed/label) Amount:\n(printed/value) 2119 dollars\n(printed/label) Date:\n("
+  ],
+  "steps": 2,
+  "seconds": 2.76,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 0.991,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "Which city is listed on DEL-1444?",
+  "gold": [
+   "Oslo"
+  ],
+  "reference": "The city listed on DEL-1444 is Oslo.",
+  "doc_id": "synthetic/gen/444",
+  "source": "synthetic",
+  "answer": "The city listed on DEL-1444 is Oslo.",
+  "citations": [
+   "synthetic/gen/444"
+  ],
+  "contexts": [
+   "[synthetic/gen/444] (synthetic, en, printed) (printed/label) DELIVERY NOTE 444\n(printed/label) Number:\n(printed/value) DEL-1444\n(printed/label) Name:\n(printed/value) Fatima Khan\n(printed/label) City:\n(printed/value) Oslo\n(printed/label) Amount:\n(printed/value) 5114 dollars\n(printed/label) Date:\n(printed/value) 2026-08-09\n(printed/label) Signed by:\n(printed/value) Fatima Chen\n[synthetic/gen/44] (synthetic, en, printed) (printed/label) DELIVERY NOTE 44\n(printed/label) Number:\n(printed/value) DEL-1044\n(printed/label) Name:\n(printed/value) Priya Chen\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 1961 dollars\n(printed/label) Date:\n(printed/value) 2026-03-13\n(printed/label) Signed by:\n(printed/value) Pierre Khan\n[synthetic/gen/14] (synthetic, en, printed) (printed/label) ...DELIVERY NOTE 14\n(printed/label) Number:\n(printed/value) DEL-1014\n(printed/label) Name:\n(printed/value) John Adeyemi\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 4095 dollars\n(printed/label) Date:\n(printed/value) 2026-05-24\n(printed/label) Signed by:\n(printed/value) Fatima Khan\n[synthetic/gen/54] (synthetic, en, printed) (printed/label) DELIVERY NOTE 54\n(printed/label) Number:\n(printed/value) DEL-1054\n(printed/label) Name:\n(printed/value) Aiko Garcia\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 4931 dollars\n(printed/label) Date:\n(printed/value) 2026-08-16\n(printed/label) Signed by:\n(printed/value) "
+  ],
+  "steps": 2,
+  "seconds": 3.21,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 0.989,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "Who signed document EXP-1428?",
+  "gold": [
+   "Fatima Khan"
+  ],
+  "reference": "Document EXP-1428 was signed by Fatima Khan.",
+  "doc_id": "synthetic/gen/428",
+  "source": "synthetic",
+  "answer": "Fatima Khan signed document EXP-1428.",
+  "citations": [
+   "synthetic/gen/428"
+  ],
+  "contexts": [
+   "[synthetic/gen/428] (synthetic, en, printed) (printed/label) ...\n(printed/label) EXPENSE CLAIM 428\n(printed/label) Number:\n(printed/value) EXP-1428\n(printed/label) Name:\n(printed/value) Fatima Lopez\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 7469 dollars\n(printed/label) Date:\n(printed/value) 2026-02-20\n(printed/label) Signed by:\n(printed/value) Fatima Khan\n[synthetic/gen/18] (synthetic, en, printed) (printed/label) ...\n(printed/label) EXPENSE CLAIM 18\n(printed/label) Number:\n(printed/value) EXP-1018\n(printed/label) Name:\n(printed/value) Aiko Smith\n(printed/label) City:\n(printed/value) Bergen\n(printed/label) Amount:\n(printed/value) 5531 dollars\n(printed/label) Date:\n(printed/value) 2026-04-07\n(printed/label) Signed by:\n(printed/value) Carlos Garcia\n[synthetic/gen/28] (synthetic, en, printed) (printed/label) ...\n(printed/label) EXPENSE CLAIM 28\n(printed/label) Number:\n(printed/value) EXP-1028\n(printed/label) Name:\n(printed/value) John Tanaka\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 2967 dollars\n(printed/label) Date:\n(printed/value) 2026-04-05\n(printed/label) Signed by:\n(printed/value) Carlos Sharma\n[synthetic/gen/423] (synthetic, en, printed) (printed/label) ...\n(printed/label) EXPENSE CLAIM 423\n(printed/label) Number:\n(printed/value) EXP-1423\n(printed/label) Name:\n(printed/value) Lars Tanaka\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 8484 dollars\n(printe"
+  ],
+  "steps": 2,
+  "seconds": 3.78,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 0.537,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "Which city is listed on PUR-1071?",
+  "gold": [
+   "Porto"
+  ],
+  "reference": "The city listed on PUR-1071 is Porto.",
+  "doc_id": "synthetic/gen/71",
+  "source": "synthetic",
+  "answer": "The city listed on PUR-1071 is Porto.",
+  "citations": [
+   "synthetic/gen/71"
+  ],
+  "contexts": [
+   "[synthetic/gen/71] (synthetic, en, printed) (printed/label) PURCHASE ORDER 71\n(printed/label) Number:\n(printed/value) PUR-1071\n(printed/label) Name:\n(printed/value) Lars Chen\n(printed/label) City:\n(printed/value) Porto\n(printed/label) Amount:\n(printed/value) 188 dollars\n(printed/label) Date:\n(printed/value) 2026-05-05\n(printed/label) Signed by:\n(printed/value) Pierre Khan\n[synthetic/gen/371] (synthetic, en, printed) (printed/label) ... PUR-1371\n(printed/label) Purchase Order 371\n(printed/label) Number:\n(printed/value) PUR-1371\n(printed/label) Name:\n(printed/value) Fatima Adeyemi\n(printed/label) City:\n(printed/value) Quito\n(printed/label) Amount:\n(printed/value) 6787 dollars\n(printed/label) Date:\n(printed/value) 2026-10-04\n(printed/label) Signed by:\n(printed/value) Pierre Berg\n[synthetic/gen/41] (synthetic, en, printed) (printed/label) PURCHASE ORDER 41\n(printed/label) Number:\n(printed/value) PUR-1041\n(printed/label) Name:\n(printed/value) Priya Berg\n(printed/label) City:\n(printed/value) Lyon\n(printed/label) Amount:\n(printed/value) 2770 dollars\n(printed/label) Date:\n(printed/value) 2026-07-19\n(printed/label) Signed by:\n(printed/value) Fatima Chen\n[synthetic/gen/51] (synthetic, en, printed) (printed/label) PURCHASE ORDER 51\n(printed/label) Number:\n(printed/value) PUR-1051\n(printed/label) Name:\n(printed/value) Pierre Chen\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 2703 dollars\n(printed/label) Date:\n(printed/value) 2026-04-27\n(printed/label"
+  ],
+  "steps": 2,
+  "seconds": 2.72,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 0.99,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "Who signed document PUR-1246?",
+  "gold": [
+   "Carlos Tanaka"
+  ],
+  "reference": "Document PUR-1246 was signed by Carlos Tanaka.",
+  "doc_id": "synthetic/gen/246",
+  "source": "synthetic",
+  "answer": "Carlos Tanaka signed document PUR-1246.",
+  "citations": [
+   "synthetic/gen/246"
+  ],
+  "contexts": [
+   "[synthetic/gen/246] (synthetic, en, printed) (printed/label) PURCHASE ORDER 246\n(printed/label) Number:\n(printed/value) PUR-1246\n(printed/label) Name:\n(printed/value) Maria Chen\n(printed/label) City:\n(printed/value) Quito\n(printed/label) Amount:\n(printed/value) 5892 dollars\n(printed/label) Date:\n(printed/value) 2026-02-24\n(printed/label) Signed by:\n(printed/value) Carlos Tanaka\n[synthetic/gen/371] (synthetic, en, printed) (printed/label) ... PUR-1371\n(printed/label) Purchase Order 371\n(printed/label) Number:\n(printed/value) PUR-1371\n(printed/label) Name:\n(printed/value) Fatima Adeyemi\n(printed/label) City:\n(printed/value) Quito\n(printed/label) Amount:\n(printed/value) 6787 dollars\n(printed/label) Date:\n(printed/value) 2026-10-04\n(printed/label) Signed by:\n(printed/value) Pierre Berg\n[synthetic/gen/11] (synthetic, en, printed) (printed/label) PURCHASE ORDER 11\n(printed/label) Number:\n(printed/value) PUR-1011\n(printed/label) Name:\n(printed/value) Carlos Chen\n(printed/label) City:\n(printed/value) Bergen\n(printed/label) Amount:\n(printed/value) 7452 dollars\n(printed/label) Date:\n(printed/value) 2026-09-28\n(printed/label) Signed by:\n(printed/value) Olu Dubois\n[synthetic/gen/136] (synthetic, en, printed) (printed/label) PURCHASE ORDER 136\n(printed/label) Number:\n(printed/value) PUR-1136\n(printed/label) Name:\n(printed/value) Olu Sharma\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 1044 dollars\n(printed/label) Date:\n(printed/value) 2026-07-16\n(prin"
+  ],
+  "steps": 2,
+  "seconds": 3.32,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 0.575,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "Which city is listed on FAX-1092?",
+  "gold": [
+   "Porto"
+  ],
+  "reference": "The city listed on FAX-1092 is Porto.",
+  "doc_id": "synthetic/gen/92",
+  "source": "synthetic",
+  "answer": "The city listed on FAX-1092 is Porto.",
+  "citations": [
+   "synthetic/gen/92"
+  ],
+  "contexts": [
+   "[synthetic/gen/92] (synthetic, en, printed) (printed/label) ...\n(printed/label) FAX COVER SHEET 92\n(printed/label) Number:\n(printed/value) FAX-1092\n(printed/label) Name:\n(printed/value) Priya Chen\n(printed/label) City:\n(printed/value) Porto\n(printed/label) Amount:\n(printed/value) 4407 dollars\n(printed/label) Date:\n(printed/value) 2026-11-25\n(printed/label) Signed by:\n(printed/value) John Adeyemi\n[synthetic/gen/62] (synthetic, en, printed) (printed/header) FAX COVER SHEET 62\n(printed/label) Number:\n(printed/value) FAX-1062\n(printed/label) Name:\n(printed/value) Olu Tanaka\n(printed/label) City:\n(printed/value) Lagos\n(printed/label) Amount:\n(printed/value) 3951 dollars\n(printed/label) Date:\n(printed/value) 2026-08-10\n(printed/label) Signed by:\n(printed/value) Lars Tanaka\n[synthetic/gen/97] (synthetic, en, printed) (printed/header) FAX COVER SHEET 97\n(printed/label) Number:\n(printed/value) FAX-1097\n(printed/label) Name:\n(printed/value) Pierre Sharma\n(printed/label) City:\n(printed/value) Austin\n(printed/label) Amount:\n(printed/value) 884 dollars\n(printed/label) Date:\n(printed/value) 2026-10-01\n(printed/label) Signed by:\n(printed/value) Mei Lopez\n[synthetic/gen/7] (synthetic, en, printed) (printed/header) FAX COVER SHEET 7\n(printed/label) Number:\n(printed/value) FAX-1007\n(printed/label) Name:\n(printed/value) Lars Tanaka\n(printed/label) City:\n(printed/value) Quito\n(printed/label) Amount:\n(printed/value) 841 dollars\n(printed/label) Date:\n(printed/value) 2026-02-27\n(printed/label) Sign"
+  ],
+  "steps": 2,
+  "seconds": 3.44,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 0.988,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "Who signed document DEL-1564?",
+  "gold": [
+   "Lars Khan"
+  ],
+  "reference": "Document DEL-1564 was signed by Lars Khan.",
+  "doc_id": "synthetic/gen/564",
+  "source": "synthetic",
+  "answer": "Lars Khan signed document DEL-1564.",
+  "citations": [
+   "synthetic/gen/564"
+  ],
+  "contexts": [
+   "[synthetic/gen/564] (synthetic, en, printed) (printed/label) DELIVERY NOTE 564\n(printed/label) Number:\n(printed/value) DEL-1564\n(printed/label) Name:\n(printed/value) Fatima Dubois\n(printed/label) City:\n(printed/value) Austin\n(printed/label) Amount:\n(printed/value) 957 dollars\n(printed/label) Date:\n(printed/value) 2026-05-14\n(printed/label) Signed by:\n(printed/value) Lars Khan\n[synthetic/gen/44] (synthetic, en, printed) (printed/label) DELIVERY NOTE 44\n(printed/label) Number:\n(printed/value) DEL-1044\n(printed/label) Name:\n(printed/value) Priya Chen\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 1961 dollars\n(printed/label) Date:\n(printed/value) 2026-03-13\n(printed/label) Signed by:\n(printed/value) Pierre Khan\n[synthetic/gen/54] (synthetic, en, printed) (printed/label) DELIVERY NOTE 54\n(printed/label) Number:\n(printed/value) DEL-1054\n(printed/label) Name:\n(printed/value) Aiko Garcia\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 4931 dollars\n(printed/label) Date:\n(printed/value) 2026-08-16\n(printed/label) Signed by:\n(printed/value) Priya Dubois\n[synthetic/gen/154] (synthetic, en, printed) (printed/label) DELIVERY NOTE 154\n(printed/label) Number:\n(printed/value) DEL-1154\n(printed/label) Name:\n(printed/value) Pierre Sharma\n(printed/label) City:\n(printed/value) Bergen\n(printed/label) Amount:\n(printed/value) 3454 dollars\n(printed/label) Date:\n(printed/value) 2026-08-17\n(printed/label) Signed by:\n(printed/valu"
+  ],
+  "steps": 2,
+  "seconds": 3.14,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 0.545,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "What is the amount on DEL-1434?",
+  "gold": [
+   "3270"
+  ],
+  "reference": "The amount on DEL-1434 is 3270 dollars.",
+  "doc_id": "synthetic/gen/434",
+  "source": "synthetic",
+  "answer": "The amount on DEL-1434 is 3270 dollars.",
+  "citations": [
+   "synthetic/gen/434"
+  ],
+  "contexts": [
+   "[synthetic/gen/434] (synthetic, en, printed) (printed/label) DELIVERY NOTE 434\n(printed/label) Number:\n(printed/value) DEL-1434\n(printed/label) Name:\n(printed/value) Lars Smith\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 3270 dollars\n(printed/label) Date:\n(printed/value) 2026-07-17\n(printed/label) Signed by:\n(printed/value) Fatima Lopez\n[synthetic/gen/44] (synthetic, en, printed) (printed/label) DELIVERY NOTE 44\n(printed/label) Number:\n(printed/value) DEL-1044\n(printed/label) Name:\n(printed/value) Priya Chen\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 1961 dollars\n(printed/label) Date:\n(printed/value) 2026-03-13\n(printed/label) Signed by:\n(printed/value) Pierre Khan\n[synthetic/gen/14] (synthetic, en, printed) (printed/label) ...DELIVERY NOTE 14\n(printed/label) Number:\n(printed/value) DEL-1014\n(printed/label) Name:\n(printed/value) John Adeyemi\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 4095 dollars\n(printed/label) Date:\n(printed/value) 2026-05-24\n(printed/label) Signed by:\n(printed/value) Fatima Khan\n[synthetic/gen/34] (synthetic, en, printed) (printed/label) DELIVERY NOTE 34\n(printed/label) Number:\n(printed/value) DEL-1034\n(printed/label) Name:\n(printed/value) Mei Berg\n(printed/label) City:\n(printed/value) Porto\n(printed/label) Amount:\n(printed/value) 503 dollars\n(printed/label) Date:\n(printed/value) 2026-04-01\n(printed/label) Signed by:\n(printed/value) Pri"
+  ],
+  "steps": 2,
+  "seconds": 3.67,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 1.0,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "Which city is listed on INV-1060?",
+  "gold": [
+   "Porto"
+  ],
+  "reference": "The city listed on INV-1060 is Porto.",
+  "doc_id": "synthetic/gen/60",
+  "source": "synthetic",
+  "answer": "The city listed on INV-1060 is Porto.",
+  "citations": [
+   "synthetic/gen/60"
+  ],
+  "contexts": [
+   "[synthetic/gen/60] (synthetic, en, printed) (printed/label) INVOICE 60\n(printed/label) Number:\n(printed/value) INV-1060\n(printed/label) Name:\n(printed/value) Fatima Khan\n(printed/label) City:\n(printed/value) Porto\n(printed/label) Amount:\n(printed/value) 2575 dollars\n(printed/label) Date:\n(printed/value) 2026-05-08\n(printed/label) Signed by:\n(printed/value) Carlos Garcia\n[synthetic/gen/30] (synthetic, en, printed) (printed/label) INVOICE 30\n(printed/label) Number:\n(printed/value) INV-1030\n(printed/label) Name:\n(printed/value) Mei Khan\n(printed/label) City:\n(printed/value) Porto\n(printed/label) Amount:\n(printed/value) 542 dollars\n(printed/label) Date:\n(printed/value) 2026-10-21\n(printed/label) Signed by:\n(printed/value) Pierre Khan\n[synthetic/gen/40] (synthetic, en, printed) (printed/label) INVOICE 40\n(printed/label) Number:\n(printed/value) INV-1040\n(printed/label) Name:\n(printed/value) Carlos Adeyemi\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 571 dollars\n(printed/label) Date:\n(printed/value) 2026-04-10\n(printed/label) Signed by:\n(printed/value) Pierre Tanaka\n[synthetic/gen/80] (synthetic, en, printed) (printed/label) INVOICE 80\n(printed/label) Number:\n(printed/value) INV-1080\n(printed/label) Name:\n(printed/value) Fatima Sharma\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 6944 dollars\n(printed/label) Date:\n(printed/value) 2026-06-12\n(printed/label) Signed by:\n(printed/value) Mei Sharma\n[synthetic/ge"
+  ],
+  "steps": 2,
+  "seconds": 3.49,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 0.991,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "Which city is listed on DEL-1579?",
+  "gold": [
+   "Bergen"
+  ],
+  "reference": "The city listed on DEL-1579 is Bergen.",
+  "doc_id": "synthetic/gen/579",
+  "source": "synthetic",
+  "answer": "The city listed on DEL-1579 is Bergen.",
+  "citations": [
+   "synthetic/gen/579"
+  ],
+  "contexts": [
+   "[synthetic/gen/579] (synthetic, en, printed) (printed/label) DELIVERY NOTE 579\n(printed/label) Number:\n(printed/value) DEL-1579\n(printed/label) Name:\n(printed/value) Lars Sharma\n(printed/label) City:\n(printed/value) Bergen\n(printed/label) Amount:\n(printed/value) 2357 dollars\n(printed/label) Date:\n(printed/value) 2026-11-11\n(printed/label) Signed by:\n(printed/value) Maria Berg\n[synthetic/gen/139] (synthetic, en, printed) (printed/label) DELIVERY NOTE 139\n(printed/label) Number:\n(printed/value) DEL-1139\n(printed/label) Name:\n(printed/value) Maria Adeyemi\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 5021 dollars\n(printed/label) Date:\n(printed/value) 2026-12-18\n(printed/label) Signed by:\n(printed/value) Maria Chen\n[synthetic/gen/4] (synthetic, en, printed) (printed/header) ...DELIVERY NOTE 4\n(printed/label) Number:\n(printed/value) DEL-1004\n(printed/label) Name:\n(printed/value) Pierre Khan\n(printed/label) City:\n(printed/value) Lagos\n(printed/label) Amount:\n(printed/value) 6539 dollars\n(printed/label) Date:\n(printed/value) 2026-08-05\n(printed/label) Signed by:\n(printed/value) John Smith\n[synthetic/gen/479] (synthetic, en, printed) (printed/label) DELIVERY NOTE 479\n(printed/label) Number:\n(printed/value) DEL-1479\n(printed/label) Name:\n(printed/value) Priya Chen\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 8380 dollars\n(printed/label) Date:\n(printed/value) 2026-09-21\n(printed/label) Signed by:\n(printed/valu"
+  ],
+  "steps": 3,
+  "seconds": 4.65,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 0.99,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "What is the amount on PUR-1126?",
+  "gold": [
+   "7526"
+  ],
+  "reference": "The amount on PUR-1126 is 7526 dollars.",
+  "doc_id": "synthetic/gen/126",
+  "source": "synthetic",
+  "answer": "The amount on PUR-1126 is 7526 dollars.",
+  "citations": [
+   "synthetic/gen/126"
+  ],
+  "contexts": [
+   "[synthetic/gen/126] (synthetic, en, printed) (printed/label) PURCHASE ORDER 126\n(printed/label) Number:\n(printed/value) PUR-1126\n(printed/label) Name:\n(printed/value) Olu Lopez\n(printed/label) City:\n(printed/value) Porto\n(printed/label) Amount:\n(printed/value) 7526 dollars\n(printed/label) Date:\n(printed/value) 2026-04-21\n(printed/label) Signed by:\n(printed/value) Aiko Garcia\n[synthetic/gen/238] (synthetic, en, printed) (printed/label) ...\n(printed/label) EXPENSE CLAIM 238\n(printed/label) Number:\n(printed/value) EXP-1238\n(printed/label) Name:\n(printed/value) Lars Smith\n(printed/label) City:\n(printed/value) Quito\n(printed/label) Amount:\n(printed/value) 1126 dollars\n(printed/label) Date:\n(printed/value) 2026-02-05\n(printed/label) Signed by:\n(printed/value) Aiko Smith\n[synthetic/gen/371] (synthetic, en, printed) (printed/label) ... PUR-1371\n(printed/label) Purchase Order 371\n(printed/label) Number:\n(printed/value) PUR-1371\n(printed/label) Name:\n(printed/value) Fatima Adeyemi\n(printed/label) City:\n(printed/value) Quito\n(printed/label) Amount:\n(printed/value) 6787 dollars\n(printed/label) Date:\n(printed/value) 2026-10-04\n(printed/label) Signed by:\n(printed/value) Pierre Berg\n[synthetic/gen/136] (synthetic, en, printed) (printed/label) PURCHASE ORDER 136\n(printed/label) Number:\n(printed/value) PUR-1136\n(printed/label) Name:\n(printed/value) Olu Sharma\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 1044 dollars\n(printed/label) Date:\n(printed/value) "
+  ],
+  "steps": 2,
+  "seconds": 3.14,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 1.0,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "What is the amount on EXP-1228?",
+  "gold": [
+   "3635"
+  ],
+  "reference": "The amount on EXP-1228 is 3635 dollars.",
+  "doc_id": "synthetic/gen/228",
+  "source": "synthetic",
+  "answer": "The amount on EXP-1228 is 3635 dollars.",
+  "citations": [
+   "synthetic/gen/228"
+  ],
+  "contexts": [
+   "[synthetic/gen/228] (synthetic, en, printed) (printed/label) ...\n(printed/label) EXPENSE CLAIM 228\n(printed/label) Number:\n(printed/value) EXP-1228\n(printed/label) Name:\n(printed/value) Pierre Adeyemi\n(printed/label) City:\n(printed/value) Lyon\n(printed/label) Amount:\n(printed/value) 3635 dollars\n(printed/label) Date:\n(printed/value) 2026-08-19\n(printed/label) Signed by:\n(printed/value) Olu Garcia\n[synthetic/gen/78] (synthetic, en, printed) (printed/label) ...\n(printed/label) EXPENSE CLAIM 78\n(printed/label) Number:\n(printed/value) EXP-1078\n(printed/label) Name:\n(printed/value) Pierre Smith\n(printed/label) City:\n(printed/value) Osaka\n(printed/label) Amount:\n(printed/value) 4266 dollars\n(printed/label) Date:\n(printed/value) 2026-12-14\n(printed/label) Signed by:\n(printed/value) Maria Tanaka\n[synthetic/gen/53] (synthetic, en, printed) (printed/label) ...\n(printed/label) EXPENSE CLAIM 53\n(printed/label) Number:\n(printed/value) EXP-1053\n(printed/label) Name:\n(printed/value) Olu Dubois\n(printed/label) City:\n(printed/value) Bergen\n(printed/label) Amount:\n(printed/value) 8275 dollars\n(printed/label) Date:\n(printed/value) 2026-12-16\n(printed/label) Signed by:\n(printed/value) Mei Berg\n[synthetic/gen/8] (synthetic, en, printed) (printed/label) ...\n(printed/label) EXPENSE CLAIM 8\n(printed/label) Number:\n(printed/value) EXP-1008\n(printed/label) Name:\n(printed/value) Pierre Berg\n(printed/label) City:\n(printed/value) Quito\n(printed/label) Amount:\n(printed/value) 2119 dollars\n(printed/label) "
+  ],
+  "steps": 2,
+  "seconds": 3.39,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 1.0,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "What is the amount on INV-1645?",
+  "gold": [
+   "6888"
+  ],
+  "reference": "The amount on INV-1645 is 6888 dollars.",
+  "doc_id": "synthetic/gen/645",
+  "source": "synthetic",
+  "answer": "The amount on INV-1645 is 6888 dollars.",
+  "citations": [
+   "synthetic/gen/645"
+  ],
+  "contexts": [
+   "[synthetic/gen/645] (synthetic, en, printed) (printed/label) INVOICE 645\n(printed/label) Number:\n(printed/value) INV-1645\n(printed/label) Name:\n(printed/value) Pierre Adeyemi\n(printed/label) City:\n(printed/value) Pune\n(printed/label) Amount:\n(printed/value) 6888 dollars\n(printed/label) Date:\n(printed/value) 2026-02-10\n(printed/label) Signed by:\n(printed/value) Maria Garcia\n[synthetic/gen/1005] (synthetic, en, printed) (printed/label) INVOICE 1005\n(printed/label) Number:\n(printed/value) INV-2005\n(printed/label) Name:\n(printed/value) Carlos Sharma\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 6776 dollars\n(printed/label) Date:\n(printed/value) 2026-10-21\n(printed/label) Signed by:\n(printed/value) Fatima Berg\n[synthetic/gen/65] (synthetic, en, printed) (printed/label) INVOICE 65\n(printed/label) Number:\n(printed/value) INV-1065\n(printed/label) Name:\n(printed/value) Priya Khan\n(printed/label) City:\n(printed/value) Osaka\n(printed/label) Amount:\n(printed/value) 8475 dollars\n(printed/label) Date:\n(printed/value) 2026-04-15\n(printed/label) Signed by:\n(printed/value) Carlos Chen\n[synthetic/gen/25] (synthetic, en, printed) (printed/label) INVOICE 25\n(printed/label) Number:\n(printed/value) INV-1025\n(printed/label) Name:\n(printed/value) Priya Lopez\n(printed/label) City:\n(printed/value) Lyon\n(printed/label) Amount:\n(printed/value) 5043 dollars\n(printed/label) Date:\n(printed/value) 2026-11-16\n(printed/label) Signed by:\n(printed/value) Maria Khan\n[synthet"
+  ],
+  "steps": 2,
+  "seconds": 2.85,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 1.0,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "Which city is listed on FAX-1642?",
+  "gold": [
+   "Delhi"
+  ],
+  "reference": "The city listed on FAX-1642 is Delhi.",
+  "doc_id": "synthetic/gen/642",
+  "source": "synthetic",
+  "answer": "Delhi",
+  "citations": [
+   "synthetic/gen/642"
+  ],
+  "contexts": [
+   "[synthetic/gen/642] (synthetic, en, printed) (printed/header) FAX COVER SHEET 642\n(printed/label) Number:\n(printed/value) FAX-1642\n(printed/label) Name:\n(printed/value) Fatima Sharma\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 7783 dollars\n(printed/label) Date:\n(printed/value) 2026-12-03\n(printed/label) Signed by:\n(printed/value) Lars Sharma\n[synthetic/gen/42] (synthetic, en, printed) (printed/header) FAX COVER SHEET 42\n(printed/label) Number:\n(printed/value) FAX-1042\n(printed/label) Name:\n(printed/value) John Lopez\n(printed/label) City:\n(printed/value) Osaka\n(printed/label) Amount:\n(printed/value) 4062 dollars\n(printed/label) Date:\n(printed/value) 2026-04-05\n(printed/label) Signed by:\n(printed/value) John Chen\n[synthetic/gen/572] (synthetic, en, printed) (printed/header) FAX COVER SHEET 572\n(printed/label) Number:\n(printed/value) FAX-1572\n(printed/label) Name:\n(printed/value) Pierre Sharma\n(printed/label) City:\n(printed/value) Osaka\n(printed/label) Amount:\n(printed/value) 4567 dollars\n(printed/label) Date:\n(printed/value) 2026-10-27\n(printed/label) Signed by:\n(printed/value) Fatima Adeyemi\n[synthetic/gen/112] (synthetic, en, printed) (printed/label) ...\n(printed/label) FAX COVER SHEET 112\n(printed/label) Number:\n(printed/value) FAX-1112\n(printed/label) Name:\n(printed/value) Carlos Adeyemi\n(printed/label) City:\n(printed/value) Porto\n(printed/label) Amount:\n(printed/value) 4946 dollars\n(printed/label) Date:\n(printed/value) 2026-12-15\n(pr"
+  ],
+  "steps": 2,
+  "seconds": 2.83,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 0.403,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "What is the amount on EXP-1063?",
+  "gold": [
+   "4194"
+  ],
+  "reference": "The amount on EXP-1063 is 4194 dollars.",
+  "doc_id": "synthetic/gen/63",
+  "source": "synthetic",
+  "answer": "The amount on EXP-1063 is 4194 dollars.",
+  "citations": [
+   "synthetic/gen/63"
+  ],
+  "contexts": [
+   "[synthetic/gen/63] (synthetic, en, printed) (printed/label) ...\n(printed/label) EXPENSE CLAIM 63\n(printed/label) Number:\n(printed/value) EXP-1063\n(printed/label) Name:\n(printed/value) Carlos Garcia\n(printed/label) City:\n(printed/value) Osaka\n(printed/label) Amount:\n(printed/value) 4194 dollars\n(printed/label) Date:\n(printed/value) 2026-08-22\n(printed/label) Signed by:\n(printed/value) John Sharma\n[synthetic/gen/3] (synthetic, en, printed) (printed/label) ...\n(printed/label) EXPENSE CLAIM 3\n(printed/label) Number:\n(printed/value) EXP-1003\n(printed/label) Name:\n(printed/value) Pierre Adeyemi\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 2186 dollars\n(printed/label) Date:\n(printed/value) 2026-06-20\n(printed/label) Signed by:\n(printed/value) Carlos Adeyemi\n[synthetic/gen/33] (synthetic, en, printed) (printed/label) ...\n(printed/label) EXPENSE CLAIM 33\n(printed/label) Number:\n(printed/value) EXP-1033\n(printed/label) Name:\n(printed/value) Olu Tanaka\n(printed/label) City:\n(printed/value) Lyon\n(printed/label) Amount:\n(printed/value) 4593 dollars\n(printed/label) Date:\n(printed/value) 2026-08-21\n(printed/label) Signed by:\n(printed/value) Mei Chen\n[synthetic/gen/38] (synthetic, en, printed) (printed/label) ...\n(printed/label) EXPENSE CLAIM 38\n(printed/label) Number:\n(printed/value) EXP-1038\n(printed/label) Name:\n(printed/value) Priya Sharma\n(printed/label) City:\n(printed/value) Lagos\n(printed/label) Amount:\n(printed/value) 1135 dollars\n(printed/label"
+  ],
+  "steps": 2,
+  "seconds": 3.37,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 1.0,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "What is the amount on INV-1590?",
+  "gold": [
+   "8040"
+  ],
+  "reference": "The amount on INV-1590 is 8040 dollars.",
+  "doc_id": "synthetic/gen/590",
+  "source": "synthetic",
+  "answer": "The amount on INV-1590 is 8040 dollars.",
+  "citations": [
+   "synthetic/gen/590"
+  ],
+  "contexts": [
+   "[synthetic/gen/590] (synthetic, en, printed) (printed/label) INVOICE 590\n(printed/label) Number:\n(printed/value) INV-1590\n(printed/label) Name:\n(printed/value) Maria Lopez\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 8040 dollars\n(printed/label) Date:\n(printed/value) 2026-07-14\n(printed/label) Signed by:\n(printed/value) Lars Tanaka\n[synthetic/gen/490] (synthetic, en, printed) (printed/label) INVOICE 490\n(printed/label) Number:\n(printed/value) INV-1490\n(printed/label) Name:\n(printed/value) Carlos Chen\n(printed/label) City:\n(printed/value) Bergen\n(printed/label) Amount:\n(printed/value) 1294 dollars\n(printed/label) Date:\n(printed/value) 2026-12-19\n(printed/label) Signed by:\n(printed/value) Fatima Garcia\n[synthetic/gen/1005] (synthetic, en, printed) (printed/label) INVOICE 1005\n(printed/label) Number:\n(printed/value) INV-2005\n(printed/label) Name:\n(printed/value) Carlos Sharma\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 6776 dollars\n(printed/label) Date:\n(printed/value) 2026-10-21\n(printed/label) Signed by:\n(printed/value) Fatima Berg\n[synthetic/gen/0] (synthetic, en, printed) (printed/label) ...\n(printed/label) INVOICE 0\n(printed/label) Number:\n(printed/value) INV-1000\n(printed/label) Name:\n(printed/value) Priya Sharma\n(printed/label) City:\n(printed/value) Oslo\n(printed/label) Amount:\n(printed/value) 4292 dollars\n(printed/label) Date:\n(printed/value) 2026-09-16\n(printed/label) Signed by:\n(printed/valu"
+  ],
+  "steps": 2,
+  "seconds": 2.76,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 1.0,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "What is the amount on DEL-1599?",
+  "gold": [
+   "7145"
+  ],
+  "reference": "The amount on DEL-1599 is 7145 dollars.",
+  "doc_id": "synthetic/gen/599",
+  "source": "synthetic",
+  "answer": "The amount on DEL-1599 is 7145 dollars.",
+  "citations": [
+   "synthetic/gen/599"
+  ],
+  "contexts": [
+   "[synthetic/gen/599] (synthetic, en, printed) (printed/label) DELIVERY NOTE 599\n(printed/label) Number:\n(printed/value) DEL-1599\n(printed/label) Name:\n(printed/value) Maria Berg\n(printed/label) City:\n(printed/value) Lagos\n(printed/label) Amount:\n(printed/value) 7145 dollars\n(printed/label) Date:\n(printed/value) 2026-01-21\n(printed/label) Signed by:\n(printed/value) Fatima Tanaka\n[synthetic/gen/139] (synthetic, en, printed) (printed/label) DELIVERY NOTE 139\n(printed/label) Number:\n(printed/value) DEL-1139\n(printed/label) Name:\n(printed/value) Maria Adeyemi\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 5021 dollars\n(printed/label) Date:\n(printed/value) 2026-12-18\n(printed/label) Signed by:\n(printed/value) Maria Chen\n[synthetic/gen/99] (synthetic, en, printed) (printed/label) DELIVERY NOTE 99\n(printed/label) Number:\n(printed/value) DEL-1099\n(printed/label) Name:\n(printed/value) Priya Sharma\n(printed/label) City:\n(printed/value) Lyon\n(printed/label) Amount:\n(printed/value) 2979 dollars\n(printed/label) Date:\n(printed/value) 2026-04-08\n(printed/label) Signed by:\n(printed/value) Aiko Smith\n[synthetic/gen/499] (synthetic, en, printed) (printed/label) DELIVERY NOTE 499\n(printed/label) Number:\n(printed/value) DEL-1499\n(printed/label) Name:\n(printed/value) John Tanaka\n(printed/label) City:\n(printed/value) Bergen\n(printed/label) Amount:\n(printed/value) 4983 dollars\n(printed/label) Date:\n(printed/value) 2026-10-16\n(printed/label) Signed by:\n(printed/val"
+  ],
+  "steps": 2,
+  "seconds": 2.93,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 1.0,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "Who signed document PUR-1406?",
+  "gold": [
+   "Aiko Lopez"
+  ],
+  "reference": "Document PUR-1406 was signed by Aiko Lopez.",
+  "doc_id": "synthetic/gen/406",
+  "source": "synthetic",
+  "answer": "Aiko Lopez signed document PUR-1406.",
+  "citations": [
+   "synthetic/gen/406"
+  ],
+  "contexts": [
+   "[synthetic/gen/406] (synthetic, en, printed) (printed/label) PURCHASE ORDER 406\n(printed/label) Number:\n(printed/value) PUR-1406\n(printed/label) Name:\n(printed/value) Priya Sharma\n(printed/label) City:\n(printed/value) Quito\n(printed/label) Amount:\n(printed/value) 5001 dollars\n(printed/label) Date:\n(printed/value) 2026-11-04\n(printed/label) Signed by:\n(printed/value) Aiko Lopez\n[synthetic/gen/371] (synthetic, en, printed) (printed/label) ... PUR-1371\n(printed/label) Purchase Order 371\n(printed/label) Number:\n(printed/value) PUR-1371\n(printed/label) Name:\n(printed/value) Fatima Adeyemi\n(printed/label) City:\n(printed/value) Quito\n(printed/label) Amount:\n(printed/value) 6787 dollars\n(printed/label) Date:\n(printed/value) 2026-10-04\n(printed/label) Signed by:\n(printed/value) Pierre Berg\n[synthetic/gen/111] (synthetic, en, printed) (printed/label) PURCHASE ORDER 111\n(printed/label) Number:\n(printed/value) PUR-1111\n(printed/label) Name:\n(printed/value) Pierre Berg\n(printed/label) City:\n(printed/value) Bergen\n(printed/label) Amount:\n(printed/value) 3231 dollars\n(printed/label) Date:\n(printed/value) 2026-07-14\n(printed/label) Signed by:\n(printed/value) Olu Tanaka\n[synthetic/gen/481] (synthetic, en, printed) (printed/label) PURCHASE ORDER 481\n(printed/label) Number:\n(printed/value) PUR-1481\n(printed/label) Name:\n(printed/value) Carlos Sharma\n(printed/label) City:\n(printed/value) Pune\n(printed/label) Amount:\n(printed/value) 7607 dollars\n(printed/label) Date:\n(printed/value) 2026-11-10\n(p"
+  ],
+  "steps": 3,
+  "seconds": 4.66,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 0.569,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "Who signed document INV-1050?",
+  "gold": [
+   "Lars Smith"
+  ],
+  "reference": "Document INV-1050 was signed by Lars Smith.",
+  "doc_id": "synthetic/gen/50",
+  "source": "synthetic",
+  "answer": "Lars Smith signed document INV-1050.",
+  "citations": [
+   "synthetic/gen/50"
+  ],
+  "contexts": [
+   "[synthetic/gen/50] (synthetic, en, printed) (printed/label) INVOICE 50\n(printed/label) Number:\n(printed/value) INV-1050\n(printed/label) Name:\n(printed/value) Carlos Khan\n(printed/label) City:\n(printed/value) Austin\n(printed/label) Amount:\n(printed/value) 4022 dollars\n(printed/label) Date:\n(printed/value) 2026-12-16\n(printed/label) Signed by:\n(printed/value) Lars Smith\n[synthetic/gen/30] (synthetic, en, printed) (printed/label) INVOICE 30\n(printed/label) Number:\n(printed/value) INV-1030\n(printed/label) Name:\n(printed/value) Mei Khan\n(printed/label) City:\n(printed/value) Porto\n(printed/label) Amount:\n(printed/value) 542 dollars\n(printed/label) Date:\n(printed/value) 2026-10-21\n(printed/label) Signed by:\n(printed/value) Pierre Khan\n[synthetic/gen/1005] (synthetic, en, printed) (printed/label) INVOICE 1005\n(printed/label) Number:\n(printed/value) INV-2005\n(printed/label) Name:\n(printed/value) Carlos Sharma\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 6776 dollars\n(printed/label) Date:\n(printed/value) 2026-10-21\n(printed/label) Signed by:\n(printed/value) Fatima Berg\n[synthetic/gen/40] (synthetic, en, printed) (printed/label) INVOICE 40\n(printed/label) Number:\n(printed/value) INV-1040\n(printed/label) Name:\n(printed/value) Carlos Adeyemi\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 571 dollars\n(printed/label) Date:\n(printed/value) 2026-04-10\n(printed/label) Signed by:\n(printed/value) Pierre Tanaka\n[synthetic"
+  ],
+  "steps": 2,
+  "seconds": 3.3,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 0.537,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "Which city is listed on PUR-1226?",
+  "gold": [
+   "Delhi"
+  ],
+  "reference": "The city listed on PUR-1226 is Delhi.",
+  "doc_id": "synthetic/gen/226",
+  "source": "synthetic",
+  "answer": "The city listed on PUR-1226 is Delhi.",
+  "citations": [
+   "synthetic/gen/226"
+  ],
+  "contexts": [
+   "[synthetic/gen/226] (synthetic, en, printed) (printed/label) PURCHASE ORDER 226\n(printed/label) Number:\n(printed/value) PUR-1226\n(printed/label) Name:\n(printed/value) Carlos Lopez\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 870 dollars\n(printed/label) Date:\n(printed/value) 2026-03-12\n(printed/label) Signed by:\n(printed/value) Lars Sharma\n[synthetic/gen/371] (synthetic, en, printed) (printed/label) ... PUR-1371\n(printed/label) Purchase Order 371\n(printed/label) Number:\n(printed/value) PUR-1371\n(printed/label) Name:\n(printed/value) Fatima Adeyemi\n(printed/label) City:\n(printed/value) Quito\n(printed/label) Amount:\n(printed/value) 6787 dollars\n(printed/label) Date:\n(printed/value) 2026-10-04\n(printed/label) Signed by:\n(printed/value) Pierre Berg\n[synthetic/gen/121] (synthetic, en, printed) (printed/label) PURCHASE ORDER 121\n(printed/label) Number:\n(printed/value) PUR-1121\n(printed/label) Name:\n(printed/value) John Dubois\n(printed/label) City:\n(printed/value) Porto\n(printed/label) Amount:\n(printed/value) 6566 dollars\n(printed/label) Date:\n(printed/value) 2026-11-06\n(printed/label) Signed by:\n(printed/value) Olu Chen\n[synthetic/gen/126] (synthetic, en, printed) (printed/label) PURCHASE ORDER 126\n(printed/label) Number:\n(printed/value) PUR-1126\n(printed/label) Name:\n(printed/value) Olu Lopez\n(printed/label) City:\n(printed/value) Porto\n(printed/label) Amount:\n(printed/value) 7526 dollars\n(printed/label) Date:\n(printed/value) 2026-04-21\n(printed"
+  ],
+  "steps": 2,
+  "seconds": 2.8,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 0.992,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "Who signed document FAX-1047?",
+  "gold": [
+   "Fatima Chen"
+  ],
+  "reference": "Document FAX-1047 was signed by Fatima Chen.",
+  "doc_id": "synthetic/gen/47",
+  "source": "synthetic",
+  "answer": "Fatima Chen signed document FAX-1047.",
+  "citations": [
+   "synthetic/gen/47"
+  ],
+  "contexts": [
+   "[synthetic/gen/47] (synthetic, en, printed) (printed/header) FAX COVER SHEET 47\n(printed/label) Number:\n(printed/value) FAX-1047\n(printed/label) Name:\n(printed/value) Lars Smith\n(printed/label) City:\n(printed/value) Quito\n(printed/label) Amount:\n(printed/value) 7482 dollars\n(printed/label) Date:\n(printed/value) 2026-10-11\n(printed/label) Signed by:\n(printed/value) Fatima Chen\n[synthetic/gen/7] (synthetic, en, printed) (printed/header) FAX COVER SHEET 7\n(printed/label) Number:\n(printed/value) FAX-1007\n(printed/label) Name:\n(printed/value) Lars Tanaka\n(printed/label) City:\n(printed/value) Quito\n(printed/label) Amount:\n(printed/value) 841 dollars\n(printed/label) Date:\n(printed/value) 2026-02-27\n(printed/label) Signed by:\n(printed/value) Mei Smith\n[synthetic/gen/42] (synthetic, en, printed) (printed/header) FAX COVER SHEET 42\n(printed/label) Number:\n(printed/value) FAX-1042\n(printed/label) Name:\n(printed/value) John Lopez\n(printed/label) City:\n(printed/value) Osaka\n(printed/label) Amount:\n(printed/value) 4062 dollars\n(printed/label) Date:\n(printed/value) 2026-04-05\n(printed/label) Signed by:\n(printed/value) John Chen\n[synthetic/gen/97] (synthetic, en, printed) (printed/header) FAX COVER SHEET 97\n(printed/label) Number:\n(printed/value) FAX-1097\n(printed/label) Name:\n(printed/value) Pierre Sharma\n(printed/label) City:\n(printed/value) Austin\n(printed/label) Amount:\n(printed/value) 884 dollars\n(printed/label) Date:\n(printed/value) 2026-10-01\n(printed/label) Signed by:\n(printed/value)"
+  ],
+  "steps": 2,
+  "seconds": 3.62,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 0.612,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "Who signed document INV-1570?",
+  "gold": [
+   "Fatima Berg"
+  ],
+  "reference": "Document INV-1570 was signed by Fatima Berg.",
+  "doc_id": "synthetic/gen/570",
+  "source": "synthetic",
+  "answer": "Fatima Berg signed document INV-1570.",
+  "citations": [
+   "synthetic/gen/570"
+  ],
+  "contexts": [
+   "[synthetic/gen/400] (synthetic, en, printed) (printed/label) INVOICE 400\n(printed/label) Number:\n(printed/value) INV-1400\n(printed/label) Name:\n(printed/value) Fatima Chen\n(printed/label) City:\n(printed/value) Osaka\n(printed/label) Amount:\n(printed/value) 1570 dollars\n(printed/label) Date:\n(printed/value) 2026-10-16\n(printed/label) Signed by:\n(printed/value) Carlos Sharma\n[synthetic/gen/570] (synthetic, en, printed) (printed/label) INVOICE 570\n(printed/label) Number:\n(printed/value) INV-1570\n(printed/label) Name:\n(printed/value) John Dubois\n(printed/label) City:\n(printed/value) Oslo\n(printed/label) Amount:\n(printed/value) 5487 dollars\n(printed/label) Date:\n(printed/value) 2026-01-01\n(printed/label) Signed by:\n(printed/value) Fatima Berg\n[synthetic/gen/468] (synthetic, en, printed) (printed/label) ...\n(printed/label) EXPENSE CLAIM 468\n(printed/label) Number:\n(printed/value) EXP-1468\n(printed/label) Name:\n(printed/value) Pierre Sharma\n(printed/label) City:\n(printed/value) Oslo\n(printed/label) Amount:\n(printed/value) 1570 dollars\n(printed/label) Date:\n(printed/value) 2026-03-23\n(printed/label) Signed by:\n(printed/value) Priya Tanaka\n[synthetic/gen/130] (synthetic, en, printed) (printed/label) INVOICE 130\n(printed/label) Number:\n(printed/value) INV-1130\n(printed/label) Name:\n(printed/value) Mei Sharma\n(printed/label) City:\n(printed/value) Osaka\n(printed/label) Amount:\n(printed/value) 7261 dollars\n(printed/label) Date:\n(printed/value) 2026-11-15\n(printed/label) Signed by:\n(printed"
+  ],
+  "steps": 2,
+  "seconds": 2.9,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 0.497,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "Which city is listed on PUR-1136?",
+  "gold": [
+   "Delhi"
+  ],
+  "reference": "The city listed on PUR-1136 is Delhi.",
+  "doc_id": "synthetic/gen/136",
+  "source": "synthetic",
+  "answer": "The city listed on PUR-1136 is Delhi.",
+  "citations": [
+   "synthetic/gen/136"
+  ],
+  "contexts": [
+   "[synthetic/gen/136] (synthetic, en, printed) (printed/label) PURCHASE ORDER 136\n(printed/label) Number:\n(printed/value) PUR-1136\n(printed/label) Name:\n(printed/value) Olu Sharma\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 1044 dollars\n(printed/label) Date:\n(printed/value) 2026-07-16\n(printed/label) Signed by:\n(printed/value) Pierre Sharma\n[synthetic/gen/371] (synthetic, en, printed) (printed/label) ... PUR-1371\n(printed/label) Purchase Order 371\n(printed/label) Number:\n(printed/value) PUR-1371\n(printed/label) Name:\n(printed/value) Fatima Adeyemi\n(printed/label) City:\n(printed/value) Quito\n(printed/label) Amount:\n(printed/value) 6787 dollars\n(printed/label) Date:\n(printed/value) 2026-10-04\n(printed/label) Signed by:\n(printed/value) Pierre Berg\n[synthetic/gen/111] (synthetic, en, printed) (printed/label) PURCHASE ORDER 111\n(printed/label) Number:\n(printed/value) PUR-1111\n(printed/label) Name:\n(printed/value) Pierre Berg\n(printed/label) City:\n(printed/value) Bergen\n(printed/label) Amount:\n(printed/value) 3231 dollars\n(printed/label) Date:\n(printed/value) 2026-07-14\n(printed/label) Signed by:\n(printed/value) Olu Tanaka\n[synthetic/gen/131] (synthetic, en, printed) (printed/label) PURCHASE ORDER 131\n(printed/label) Number:\n(printed/value) PUR-1131\n(printed/label) Name:\n(printed/value) Lars Berg\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 1485 dollars\n(printed/label) Date:\n(printed/value) 2026-07-10\n(pri"
+  ],
+  "steps": 4,
+  "seconds": 5.74,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 0.991,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "What is the amount on PUR-1296?",
+  "gold": [
+   "8267"
+  ],
+  "reference": "The amount on PUR-1296 is 8267 dollars.",
+  "doc_id": "synthetic/gen/296",
+  "source": "synthetic",
+  "answer": "The amount on PUR-1296 is 8267 dollars.",
+  "citations": [
+   "synthetic/gen/296"
+  ],
+  "contexts": [
+   "[synthetic/gen/296] (synthetic, en, printed) (printed/label) PURCHASE ORDER 296\n(printed/label) Number:\n(printed/value) PUR-1296\n(printed/label) Name:\n(printed/value) John Khan\n(printed/label) City:\n(printed/value) Austin\n(printed/label) Amount:\n(printed/value) 8267 dollars\n(printed/label) Date:\n(printed/value) 2026-11-02\n(printed/label) Signed by:\n(printed/value) Olu Sharma\n[synthetic/gen/371] (synthetic, en, printed) (printed/label) ... PUR-1371\n(printed/label) Purchase Order 371\n(printed/label) Number:\n(printed/value) PUR-1371\n(printed/label) Name:\n(printed/value) Fatima Adeyemi\n(printed/label) City:\n(printed/value) Quito\n(printed/label) Amount:\n(printed/value) 6787 dollars\n(printed/label) Date:\n(printed/value) 2026-10-04\n(printed/label) Signed by:\n(printed/value) Pierre Berg\n[synthetic/gen/136] (synthetic, en, printed) (printed/label) PURCHASE ORDER 136\n(printed/label) Number:\n(printed/value) PUR-1136\n(printed/label) Name:\n(printed/value) Olu Sharma\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 1044 dollars\n(printed/label) Date:\n(printed/value) 2026-07-16\n(printed/label) Signed by:\n(printed/value) Pierre Sharma\n[synthetic/gen/121] (synthetic, en, printed) (printed/label) PURCHASE ORDER 121\n(printed/label) Number:\n(printed/value) PUR-1121\n(printed/label) Name:\n(printed/value) John Dubois\n(printed/label) City:\n(printed/value) Porto\n(printed/label) Amount:\n(printed/value) 6566 dollars\n(printed/label) Date:\n(printed/value) 2026-11-06\n(pri"
+  ],
+  "steps": 2,
+  "seconds": 2.87,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 1.0,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "Which city is listed on DEL-1429?",
+  "gold": [
+   "Oslo"
+  ],
+  "reference": "The city listed on DEL-1429 is Oslo.",
+  "doc_id": "synthetic/gen/429",
+  "source": "synthetic",
+  "answer": "The city listed on DEL-1429 is Oslo.",
+  "citations": [
+   "synthetic/gen/429"
+  ],
+  "contexts": [
+   "[synthetic/gen/429] (synthetic, en, printed) (printed/label) DELIVERY NOTE 429\n(printed/label) Number:\n(printed/value) DEL-1429\n(printed/label) Name:\n(printed/value) Olu Smith\n(printed/label) City:\n(printed/value) Oslo\n(printed/label) Amount:\n(printed/value) 5663 dollars\n(printed/label) Date:\n(printed/value) 2026-01-08\n(printed/label) Signed by:\n(printed/value) Carlos Sharma\n[synthetic/gen/14] (synthetic, en, printed) (printed/label) ...DELIVERY NOTE 14\n(printed/label) Number:\n(printed/value) DEL-1014\n(printed/label) Name:\n(printed/value) John Adeyemi\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 4095 dollars\n(printed/label) Date:\n(printed/value) 2026-05-24\n(printed/label) Signed by:\n(printed/value) Fatima Khan\n[synthetic/gen/139] (synthetic, en, printed) (printed/label) DELIVERY NOTE 139\n(printed/label) Number:\n(printed/value) DEL-1139\n(printed/label) Name:\n(printed/value) Maria Adeyemi\n(printed/label) City:\n(printed/value) Delhi\n(printed/label) Amount:\n(printed/value) 5021 dollars\n(printed/label) Date:\n(printed/value) 2026-12-18\n(printed/label) Signed by:\n(printed/value) Maria Chen\n[synthetic/gen/69] (synthetic, en, printed) (printed/label) DELIVERY NOTE 69\n(printed/label) Number:\n(printed/value) DEL-1069\n(printed/label) Name:\n(printed/value) Maria Smith\n(printed/label) City:\n(printed/value) Pune\n(printed/label) Amount:\n(printed/value) 1142 dollars\n(printed/label) Date:\n(printed/value) 2026-10-12\n(printed/label) Signed by:\n(printed/valu"
+  ],
+  "steps": 2,
+  "seconds": 3.49,
+  "exact_match": true,
+  "cited_source": true,
+  "scores": {
+   "faithfulness": 1.0,
+   "answer_relevancy": 0.989,
+   "llm_context_precision_with_reference": 1.0,
+   "context_recall": 1.0
+  }
+ },
+ {
+  "question": "What is the amount on FAX-1147?",
+  "gold": [
+   "7250"
+  ],
+  "reference": "The amount on FAX-1147 is 7250 dollars.",
+  "doc_id": "synthetic/gen/147",
+  "source": "synthetic",
+  "answer": "The amount on FAX-1147 is not available in the corpus.",
+  "citations": [],
+  "contexts": [
+   "(no context retrieved)"
+  ],
+  "steps": 4,
+  "seconds": 5.73,
+  "exact_match": false,
+  "cited_source": false,
+  "scores": {
+   "faithfulness": 0.0,
+   "answer_relevancy": 0.0,
+   "llm_context_precision_with_reference": 0.0,
+   "context_recall": 0.0
+  }
+ }
+]

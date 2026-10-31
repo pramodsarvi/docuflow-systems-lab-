@@ -1,0 +1,11 @@
+# Prometheus Operator objects (kube-prometheus-stack): scrape the API and every worker, alert on stuck or failing
+# ingest, and ship a Grafana dashboard (picked up by the Grafana sidecar via the grafana_dashboard label).
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+resources: [monitors.yaml, alerts.yaml]
+configMapGenerator:
+  - name: docuflow-grafana-dashboard
+    files: [docuflow.json=dashboard.json]
+    options:
+      disableNameSuffixHash: true
+      labels: {grafana_dashboard: "1"}

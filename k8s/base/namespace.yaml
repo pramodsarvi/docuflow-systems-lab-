@@ -1,3 +1,8 @@
 apiVersion: v1
 kind: Namespace
-metadata: {name: docuflow}
+metadata:
+  name: docuflow
+  labels:
+    # Enforce the restricted Pod Security Standard for app pods; postgres needs `baseline` (its entrypoint chowns PGDATA).
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted

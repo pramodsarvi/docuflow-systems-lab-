@@ -1,0 +1,32 @@
+# CPU-only cluster (CI, laptops): the model simulator instead of vLLM. Exercises the queue, KEDA scaling and the API end
+# to end; extraction output is synthetic.     GPU=0 MONITORING=0 scripts/cluster-up.sh && make deploy OVERLAY=ci-sim
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: docuflow
+resources: [../../base]
+components:
+  - ../../components/simulator
+  - ../../components/ingress
+secretGenerator:
+  - name: docuflow-secrets
+    # fully qualified hosts: KEDA's scalers resolve them from the keda namespace
+    literals:
+      - POSTGRES_PASSWORD=docuflow-ci
+      - DOCUFLOW_DSN=postgresql://docuflow:docuflow-ci@db.docuflow.svc.cluster.local:5432/docuflow?sslmode=disable
+      - DOCUFLOW_API_KEY=
+      - LLM_API_KEY=none
+      - RABBITMQ_PASSWORD=docuflow-ci
+      - RABBITMQ_URL=amqp://docuflow:docuflow-ci@rabbitmq.docuflow.svc.cluster.local:5672/%2F
+    options: {disableNameSuffixHash: true}
+patches:
+  - target: {kind: ConfigMap, name: docuflow-config}
+    patch: |-
+      - {op: add, path: /data/SIM_NOTE, value: "simulated models: synthetic extraction output"}
+  - target: {kind: Deployment, name: sim-model}
+    patch: |-
+      - {op: replace, path: /spec/template/spec/containers/0/env/0/value, value: "2"}
+      - {op: replace, path: /spec/template/spec/containers/0/env/1/value, value: "0.3"}
+  - target: {kind: StatefulSet, name: db}
+    patch: |-
+      - {op: replace, path: /spec/template/spec/containers/0/resources/requests/cpu, value: 100m}
+      - {op: replace, path: /spec/template/spec/containers/0/resources/requests/memory, value: 256Mi}

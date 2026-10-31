@@ -1,125 +1,153 @@
 # docuflow
 
-Ingest scanned documents that mix **printed and handwritten text**, and answer questions about them with an
-**agentic RAG** loop, while ingestion keeps running. Everything runs locally: Ollama for the models, Postgres + pgvector
-for storage, search and the job queue.
+Ingest scanned documents that mix **printed and handwritten text**, and answer questions about them with an **agentic
+RAG** loop **while ingestion keeps running**. It runs on Kubernetes with real GPUs: vLLM containers serve the models, a
+RabbitMQ work queue drives **KEDA** autoscaling, and Postgres + pgvector handle storage, search and job state.
 
-| Dataset | Source on the Hub | What the pipeline gets |
+```
+                 ┌──────────── ingress-nginx (docuflow.localtest.me) ────────────┐
+                 ▼                                                                │
+   POST /ingest, /query ──► api (KEDA: CPU + queries in flight, 1..4) ────────────┘
+          │                    │ agent loop: search / get_page / read_page_image / answer(citations)
+          │ jobs (Postgres)    │
+          │ + 1 token per job  ▼
+          ▼             ┌─────────────┐   vLLM containers on the GPU node (nvidia.com/gpu, time-sliced)
+   RabbitMQ queues ───► │ worker-io   │   ┌──────────────────────────────────────────────────────────┐
+   docuflow.io          │ worker-vlm  │──►│ model-vlm   Qwen2.5-VL (page reading)   KEDA 1..N on vLLM │
+   docuflow.vlm         │ worker-embed│──►│ model-llm   Qwen3-4B-Instruct (agent)                    │
+   docuflow.embed       └─────────────┘   │ model-embed Qwen3-Embedding-0.6B (1024-d)                 │
+     ▲  KEDA rabbitmq scaler: 0..N each    └──────────────────────────────────────────────────────────┘
+     └─ retries via docuflow.<lane>.delay (TTL dead-letter)        Prometheus + Grafana + DCGM, alerts
+```
+
+| Dataset | Source | What the pipeline gets |
 |---|---|---|
+| synthetic | generated in-process | forms with printed labels + handwriting-style values, known answers (demos, CI, stress tests) |
 | FUNSD | `nielsr/funsd-layoutlmv3` | scanned forms, printed labels + filled-in answers |
 | XFUND | `nnul/xfund-multilingual` | forms in DE/ES/FR/IT/JA/PT/ZH |
-| DocVQA | `lmms-lab/DocVQA` | document pages with question/answer pairs (used for QA evals) |
-| IAM | `Teklia/IAM-line` | handwritten **line images** only (the Hub copy has no full forms or printed prompts) |
+| DocVQA | `lmms-lab/DocVQA` | document pages with question/answer pairs (QA evals) |
+| IAM | `Teklia/IAM-line` | handwritten line images |
 
-## How it works
+## Quick start: Kubernetes on an NVIDIA GPU machine
 
-```
- POST /ingest ──► fetch (io lane) ──► extract (vlm lane) ──► embed (embed lane) ──► pgvector + tsvector
-   per dataset     stream a slice,      vision model reads the     embed chunks,        queryable as soon as
-                   store page, enqueue  page: text + printed/      mark page            each page lands
-                   one extract per page handwritten + role         indexed
- POST /query ──► agent loop: search / get_page / read_page_image / corpus_stats / answer(citations)
-```
-
-- **Parallel ingest and query.** Each stage is a job in a Postgres queue (`FOR UPDATE SKIP LOCKED`). Pages are
-  enqueued as they are fetched and indexed as soon as they are embedded, so a query run mid-ingest sees whatever is
-  indexed so far. The agent is told the corpus is still being ingested.
-- **Workload management** (`docuflow/jobs.py`), all live-adjustable without restarting:
-  - per-lane concurrency limit (`io`, `vlm`, `embed`), enforced across processes under an advisory lock
-  - per-dataset cap in the vlm lane plus fair-share ordering, so one big dataset cannot starve the others
-  - priorities; downstream stages outrank upstream ones so pages finish and become queryable sooner
-  - pause/resume a lane or a dataset
-  - **the vlm lane yields while queries are in flight**, so interactive questions are not stuck behind page reading
-  - retries with exponential backoff, a dead-letter state (`retry-dead`), lease expiry for crashed workers,
-    orphan recovery on startup, and the supervisor restarts any process that dies
-- **Printed vs handwritten.** The vision model labels every region `printed` or `handwritten` and gives it a role
-  (label, value, signature…). Each chunk line keeps that tag, so the agent can filter (`kind=handwritten`) and cite.
-- **Agentic RAG** (`docuflow/agent.py`). A JSON-action loop on a small LLM: search (hybrid vector + full-text, RRF),
-  rewrite and retry, read a whole page, **look at the page image** with the vision model when extracted text is
-  unclear, then answer with citations. A guard refuses to answer before the first search. The full trace is returned.
-
-## Run it
+Needs Docker with the NVIDIA Container Toolkit, plus `kind`, `kubectl`, `helm` and `kustomize`.
 
 ```bash
-make setup db models        # venv, pgvector on :5434, pull the three Ollama models
-make up                     # API on http://127.0.0.1:8791 (dashboard at /) + workers      (terminal 1)
-make ingest-all             # queue all four datasets at once                              (terminal 2)
-make status                 # or: python -m docuflow watch
-make ask Q="Who is the fax cover sheet addressed to?"   # works while ingestion is running
-python -m docuflow pause datasets xfund      # workload control
-python -m docuflow lane vlm 1                # set lane concurrency
-make eval QA=12             # writes evals/report.md
-make test
+# one-time host setup (Docker must hand GPUs to kind nodes)
+sudo nvidia-ctk runtime configure --runtime=docker --set-as-default
+sudo nvidia-ctk config --set accept-nvidia-visible-devices-as-volume-mounts=true --in-place && sudo systemctl restart docker
+
+make cluster-up     # kind (GPU node + CPU node), NVIDIA device plugin w/ time-slicing, KEDA, metrics-server,
+                    # ingress-nginx, kube-prometheus-stack + DCGM exporter
+make deploy         # build + load the image, deploy k8s/overlays/local-gpu, wait for the vLLM servers
+make smoke          # ingest 6 pages (real VLM reading) + an agentic query with a checked citation
+make stress         # 800-page ingest + 12 concurrent query clients, sampling autoscaling -> docs/stress-report.md
+make k8s-status     # pods, ScaledObjects, HPAs, GPUs, RabbitMQ queues
 ```
 
-Models are configurable: `VLM_MODEL` (default `gemma4:e2b-mlx`), `LLM_MODEL` (`qwen3:4b-instruct`), `EMBED_MODEL`
-(`qwen3-embedding:0.6b`). `--mode gt` on `ingest` skips the vision model and uses the dataset's own transcription,
-which is useful for fast tests.
+The API is at <http://docuflow.localtest.me> (dashboard at `/`), and Grafana is at <http://grafana.localtest.me>
+(admin/docuflow, dashboard "docuflow"). CPU-only machines (and CI) use the model simulator instead:
+`GPU=0 MONITORING=0 make cluster-up && make deploy OVERLAY=ci-sim`.
 
-API: `POST /ingest`, `POST /query`, `GET /search`, `GET /workloads`, `POST /workloads/{lane,pause,resume,retry-dead}`,
-`GET /jobs`, `GET /stats`, `GET /documents/{id}/image`.
+## How it scales
 
-## Kubernetes (fake GPUs, KEDA + HPA)
+| Component | Scaler | Signal | Range (local / prod) |
+|---|---|---|---|
+| `worker-io`, `worker-vlm`, `worker-embed` | KEDA **rabbitmq** + postgresql | tokens waiting on `docuflow.<lane>` (backlog); jobs running (keeps a busy pod alive) | 0..3 / 0..12 / 0..3, scale to zero |
+| `api` | KEDA cpu (the HPA metric) + postgresql | CPU 60%, interactive queries in flight (4 per pod) | 1..4 / 2..6 |
+| `model-vlm` (vLLM container) | KEDA **prometheus** | `vllm:num_requests_running + waiting` (4 per replica locally, 16 in prod) | 1..2 / 1..4 |
+| `model-llm`, `model-embed` | fixed | one vLLM server each, batching all clients | 1 |
 
-Runs on the existing `kind` cluster from the llm-d project (3 workers x 3 fake `nvidia.com/gpu`, KEDA, metrics-server,
-the `tenant-*` PriorityClasses). Plain Kustomize manifests in `k8s/`, no Helm.
+**Why RabbitMQ and Postgres together.** RabbitMQ carries one token per runnable job. KEDA reads queue length from it, and
+workers take a token before claiming work. Postgres keeps the job itself: its state, lease, retries, and the
+workload rules applied at claim time:
+- priority, with downstream stages first so pages become queryable sooner
+- per-dataset fair share and caps
+- pausing a lane or dataset (its tokens are dropped, so its pods scale away; on resume the reconciler restores them)
+- dead-lettering after retries
+
+Failed jobs go back through `docuflow.<lane>.delay`, whose per-message TTL implements exponential backoff. If a token is
+ever lost (a publish after commit fails, the broker restarts), workers rebuild the queue from Postgres under an
+advisory lock. Workers that die mid-job are covered by lease expiry.
+
+**GPU sharing.** The device plugin advertises the L40S as 6 time-sliced `nvidia.com/gpu`. Each vLLM server gets a fixed
+`--kv-cache-memory-bytes`: vLLM's memory profiling miscounts when several servers start on one GPU at the same time.
+Measured: vlm (3B) + llm (4B) + embed (0.6B) use 27 GB of the 46 GB, which leaves room for a second vlm replica.
+docuflow's workers request no GPU. They are HTTP clients, and vLLM batches their concurrent requests.
+
+## Stress test
+
+`scripts/stress.py` queues a large ingest and runs N closed-loop query clients for the whole duration. Every 10 s it
+records replicas, pending pods, RabbitMQ depth, job counts, pages indexed, queries in flight, and GPU utilisation and
+memory. The report covers ingest throughput, query latency during ingest (p50/p95/max), error rate, answer correctness
+(synthetic pages have known answers) and the full scaling timeline. The latest run is in
+[`docs/stress-report.md`](docs/stress-report.md).
+
+## Repository layout
+
+```
+docuflow/            app: api, agent, worker, jobs (queue rules), broker (RabbitMQ tokens), pipeline, sources, llm client
+deploy/kind/         kind cluster with GPU passthrough      deploy/helm-values/   device plugin, Prometheus stack, DCGM
+k8s/base/            namespace, priority classes, Postgres, RabbitMQ, api, workers, KEDA, gc CronJob, PDBs, NetworkPolicies
+k8s/components/      models (vLLM + KEDA) · simulator · monitoring (monitors, alerts, Grafana dashboard) · ingress
+k8s/overlays/        local-gpu (this machine) · ci-sim (CPU-only/CI) · prod (whole GPUs, TLS, backups, external secrets)
+scripts/             cluster-up.sh · smoke.sh · stress.py
+.github/workflows/   lint + tests (Postgres + RabbitMQ services), manifest validation, image build, kind e2e
+```
+
+## Production (`k8s/overlays/prod`)
+
+This overlay targets a GPU cluster (AKS/EKS/GKE) with the GPU Operator, KEDA, kube-prometheus-stack, ingress-nginx and
+cert-manager installed.
 
 ```bash
-make k8s-up        # build image, load into kind, deploy db + api + sim-model + workers + scalers
-make k8s-key KEY=...   # optional: require X-API-Key (also: DOCUFLOW_API_KEY env locally)
-make k8s-ui        # port-forward the API to :8792 (leave running)
-make k8s-demo      # ingest burst, prints worker-vlm replicas / GPU-pending samples, asks a question mid-run
-make k8s-status    # pods, ScaledObjects, HPA, node GPU capacity
-make k8s-real      # swap the simulator for real Ollama on the Mac host
+make prod-image REGISTRY=myregistry.azurecr.io TAG=v0.2.0
+export POSTGRES_PASSWORD=... RABBITMQ_PASSWORD=... DOCUFLOW_API_KEY=...   # optional: DOCUFLOW_DSN / RABBITMQ_URL for managed services
+make prod-secrets
+make prod-deploy REGISTRY=myregistry.azurecr.io TAG=v0.2.0 HOST=docuflow.example.com
 ```
 
-| Piece | Scaling |
-|---|---|
-| `worker-vlm` (requests 1 fake GPU, `tenant-batch` priority) | **KEDA** Postgres scaler on queued+running vlm jobs, 0 to 6 replicas, ~2 jobs per worker. Scales to zero when idle. |
-| `worker-io`, `worker-embed` (no GPU) | KEDA, 1 to 2 replicas |
-| `api` (`tenant-standard`) | plain **HPA** on CPU, 1 to 3 replicas |
+Compared with local: the 7B vision model runs on whole GPUs, and KEDA scales it 1..4 (the GPU node pool's cluster
+autoscaler adds nodes). The API runs 2..6 replicas behind TLS ingress, and up to 48 page-reading workers run. Postgres
+uses premium disks and gets nightly `pg_dump` backups. The model cache lives on RWX file storage, and secrets are
+created out of band. For production HA, use a managed Postgres with pgvector and a RabbitMQ cluster (quorum queues);
+both are just URLs in `docuflow-secrets`.
 
-Only 3 of the 6 fake GPUs are free next to the llm-d tenants, so KEDA asking for more vlm workers leaves the extra pods
-`Pending` until GPUs free up, and a scaled-up `critical` tenant preempts them (ingest is the lowest priority). Workers
-get 180s to finish their current job on scale-down; anything lost is requeued by lease expiry.
+**Hardening everywhere:**
+- pods run as non-root with a read-only root filesystem, no capabilities, seccomp `RuntimeDefault`, and no service-account token
+- PriorityClasses (`docuflow-interactive` outranks `docuflow-batch`; batch never preempts anything)
+- PodDisruptionBudgets and NetworkPolicies (only docuflow pods and KEDA can reach Postgres and RabbitMQ)
+- liveness/readiness/startup probes everywhere; workers expose `/health` and `/metrics` on :9100
+- the API requires `X-API-Key` when `DOCUFLOW_API_KEY` is set
+- an hourly retention CronJob (`python -m docuflow gc`)
 
-`sim-model` is a stand-in for Ollama with fixed latency and **synthetic output** (it cannot read images), so the demo
-shows scheduling and scaling, not extraction quality. In-app lane limits are set above the replica caps because the pod
-count is the real limit on Kubernetes.
+**Alerts:**
+- API down
+- model server down
+- dead jobs
+- stale backlog
+- job failure rate above 20%
+- vLLM queueing
+- GPU memory above 97%
 
-## Production on GPUs (AKS)
-
-`k8s/overlays/gpu` is the production variant for the AKS GPU cluster built by `infra/aks/up.sh` (GPU Operator, vLLM
-model servers, LiteLLM, KEDA, Prometheus/DCGM):
-
-| Concern | How |
-|---|---|
-| GPU usage | The GPUs belong to the vLLM servers (`models/vlm.prod.values.yaml`: Qwen2.5-VL-7B, KEDA-scaled 1 to 3 on in-flight requests; `embed`; the agent model). docuflow's workers are clients and request no GPU, so more workers means more concurrent requests that vLLM batches. |
-| Model access | `LLM_BACKEND=openai`, all roles through **LiteLLM** (`vlm-model`, `standard-model`, `embed-model`): per-tenant key, budget, rate limit. Retries with backoff on 429/5xx. |
-| Secrets | DSN, LiteLLM key and API key in a Secret (`make gpu-docuflow-secrets`), never in manifests. |
-| API | `X-API-Key` auth, 2 to 6 replicas on CPU HPA, spread across nodes, PodDisruptionBudget, `/ready` and `/health` probes. |
-| Pods | non-root, read-only root filesystem, no capabilities, resource requests/limits, 180s graceful stop. |
-| Data | Postgres on a premium disk with a PDB and a NetworkPolicy (only docuflow and KEDA can connect). For real production use a managed Postgres with pgvector and put its URL in `DOCUFLOW_DSN`. |
-| Observability | `GET /metrics` (queue depth and age per lane, documents by status, query latency, in-flight queries), scraped via pod annotations. |
+## Local development without Kubernetes
 
 ```bash
-make gpu-docuflow-image ACR=<registry>          # linux/amd64 build + push
-export DOCUFLOW_DSN=... LLM_API_KEY=<litellm key> DOCUFLOW_API_KEY=<choose one>
-make gpu-docuflow-secrets
-make gpu-docuflow-up ACR=<registry>
+make setup db       # venv; Postgres+pgvector :5434 and RabbitMQ :5673 in Docker
+make test           # 22 tests: queue rules, broker tokens (real RabbitMQ), API, worker health, synthetic data
+make stack          # or the whole system in docker compose (model simulator, api :8791, workers)
+make up             # or: supervisor mode with Ollama on the host (models: VLM_MODEL, LLM_MODEL, EMBED_MODEL)
 ```
 
-**Status: not yet run on a real GPU cluster.** `az` is not installed on the dev machine and no subscription was used.
-What has been checked: the overlay renders and passes a server-side dry run, the OpenAI-protocol backend was run against
-real local models (embeddings, agent, and the vision model reading a FUNSD page) and against the simulator in tests, and the
-scaling logic ran on the fake-GPU kind cluster. Expect to tune on first contact with real hardware: vLLM model names and
-flags, `maxNumSeqs`, worker counts, and `targetQueryValue`.
+Workers poll Postgres directly when `RABBITMQ_URL` is unset. API: `POST /ingest`, `POST /query`, `GET /search`,
+`GET /documents`, `GET /workloads`, `POST /workloads/{lane,pause,resume,retry-dead}`, `GET /jobs`, `GET /stats`,
+`GET /metrics`, `GET /documents/{id}/image`.
 
 ## Limits worth knowing
 
-- Page images are stored in Postgres (`bytea`, downscaled JPEG, roughly 100-300 KB each). Fine to hundreds of thousands of pages; beyond that move them to object storage.
-- Everything shares one machine (local mode). With three models resident, a query takes tens of seconds, and more while pages are being
-  read. Results are in `evals/report.md`. Raise `PROCS_VLM`/lane limits on a bigger GPU.
-- The datasets do not label printed vs handwritten. That label comes from a small vision model and is unverified.
-- The API is open unless `DOCUFLOW_API_KEY` is set (`/health` and the dashboard page stay open). Set it before exposing the API.
-- Ports: the API uses 8791 because 8000 and 8765 are commonly taken; change with `python -m docuflow up --port`.
+- The `synthetic` dataset makes the stress test reproducible offline with checkable answers, but it is easier than real
+  scans. Use `--dataset funsd` (or xfund/docvqa) for real pages. FUNSD has only 50 test pages.
+- On one GPU, page reading is compute-bound. A second time-sliced vLLM replica adds concurrency, not FLOPs, so the
+  speed-up is small. Real horizontal throughput comes from more GPUs (prod overlay).
+- Page images are stored in Postgres (`bytea`, ~100-300 KB each). Move them to object storage beyond a few hundred thousand pages.
+- The printed/handwritten label comes from the vision model and is unverified.

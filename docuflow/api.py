@@ -156,6 +156,18 @@ def stats():
     return retrieval.corpus_stats()
 
 
+@app.get("/documents")
+def list_documents(dataset: Optional[str] = None, status: Optional[str] = None, ids: Optional[str] = None, limit: int = 100):
+    """Document ids and pipeline status. `ids` is a comma-separated list (used by the smoke test)."""
+    id_list = [i for i in (ids or "").split(",") if i] or None
+    with db.pool().connection() as c:
+        return c.execute("""SELECT id, dataset, status, lang, created_at, indexed_at FROM documents
+                            WHERE (%(ds)s::text IS NULL OR dataset=%(ds)s) AND (%(st)s::text IS NULL OR status=%(st)s)
+                              AND (%(ids)s::text[] IS NULL OR id = ANY(%(ids)s))
+                            ORDER BY created_at DESC LIMIT %(lim)s""",
+                         {"ds": dataset, "st": status, "ids": id_list, "lim": min(limit, 1000)}).fetchall()
+
+
 @app.get("/documents/{doc_id:path}/image")
 def doc_image(doc_id: str):
     with db.pool().connection() as c:

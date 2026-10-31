@@ -1,11 +1,22 @@
-FROM python:3.12-slim
-ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 HF_HOME=/tmp/hf PYTHONDONTWRITEBYTECODE=1
-WORKDIR /app
+# syntax=docker/dockerfile:1
+# One image for every role: api, workers (io / vlm / embed), the model simulator and the gc CronJob.
+FROM python:3.12-slim AS build
+ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
+WORKDIR /build
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN python -m venv /opt/venv && /opt/venv/bin/pip install -r requirements.txt
+
+FROM python:3.12-slim
+ARG VERSION=dev
+LABEL org.opencontainers.image.title="docuflow" org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.source="https://github.com/pramodsarvi/docuflow-systems-lab-"
+ENV PATH=/opt/venv/bin:$PATH PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 HF_HOME=/tmp/hf DOCUFLOW_VERSION=${VERSION}
+COPY --from=build /opt/venv /opt/venv
+WORKDIR /app
 COPY docuflow ./docuflow
 COPY evals ./evals
-# Run as an unprivileged user; /tmp is the only writable path (HF cache), so the root filesystem can be read-only.
+# Unprivileged user; /tmp is the only writable path (HF cache), so the root filesystem can be read-only.
 RUN useradd --uid 10001 --no-create-home docuflow
 USER 10001
-CMD ["python", "-m", "docuflow", "up"]
+EXPOSE 8791 9100 11434
+CMD ["python", "-m", "docuflow", "up", "--host", "0.0.0.0"]

@@ -16,6 +16,8 @@ def run_fetch(job):
             if new:   # documents are enqueued as they arrive, so extraction and queries overlap the fetch
                 jobs.enqueue("extract", name, {"doc_id": d["id"], "mode": p.get("mode", "vlm")}, job["batch_id"],
                              p.get("priority", 0), conn=c)
+        if new:
+            jobs.notify_after("extract")
         n += 1
         jobs.heartbeat(job["id"])
     return n
@@ -51,6 +53,7 @@ def run_extract(job):
                    secs, used_fallback))
         c.execute("UPDATE documents SET status='extracted' WHERE id=%s", (doc_id,))
         jobs.enqueue("embed", job["dataset"], {"doc_id": doc_id}, job["batch_id"], conn=c)
+    jobs.notify_after("embed")
     return len(chunks)
 
 
@@ -60,7 +63,7 @@ def run_embed(job):
         rows = c.execute("SELECT id, text FROM chunks WHERE doc_id=%s ORDER BY seq", (doc_id,)).fetchall()
     vecs = llm.embed([r["text"] for r in rows])
     with db.pool().connection() as c:
-        for r, v in zip(rows, vecs):
+        for r, v in zip(rows, vecs, strict=True):
             c.execute("UPDATE chunks SET embedding=%s WHERE id=%s", (v, r["id"]))
         c.execute("UPDATE documents SET status='indexed', indexed_at=now() WHERE id=%s", (doc_id,))
     return len(rows)

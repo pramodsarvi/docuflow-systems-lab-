@@ -1,0 +1,25 @@
+# Local cluster for docuflow on a machine with NVIDIA GPUs (scripts/cluster-up.sh).
+#   control-plane  ingress-nginx, host ports 80/443 -> docuflow.localtest.me, grafana.localtest.me
+#   gpu worker     every host GPU passed through (NVIDIA toolkit "volume-mount" device selection); runs the model servers
+#   cpu worker     docuflow API, workers, Postgres, monitoring
+# Docker must use the nvidia runtime by default with accept-nvidia-visible-devices-as-volume-mounts=true (the script checks).
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: docuflow
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs: {node-labels: "ingress-ready=true"}
+    extraPortMappings:
+      - {containerPort: 80, hostPort: 80, protocol: TCP}
+      - {containerPort: 443, hostPort: 443, protocol: TCP}
+  - role: worker
+    labels: {docuflow.io/pool: gpu}
+    extraMounts:
+      - {hostPath: /dev/null, containerPath: /var/run/nvidia-container-devices/all}
+      - {hostPath: /var/cache/docuflow-hf, containerPath: /var/cache/docuflow-hf}   # model weights survive cluster rebuilds
+  - role: worker
+    labels: {docuflow.io/pool: cpu}

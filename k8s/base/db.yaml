@@ -1,11 +1,15 @@
+# In-cluster Postgres + pgvector. For production prefer a managed Postgres with pgvector: point DOCUFLOW_DSN at it and
+# drop this file in your overlay.
 apiVersion: v1
 kind: Service
-metadata: {name: db, namespace: docuflow}
-spec: {selector: {app: db}, ports: [{port: 5432}]}
+metadata: {name: db}
+spec:
+  selector: {app: db}
+  ports: [{name: postgres, port: 5432}]
 ---
 apiVersion: apps/v1
 kind: StatefulSet
-metadata: {name: db, namespace: docuflow}
+metadata: {name: db}
 spec:
   serviceName: db
   replicas: 1
@@ -13,20 +17,34 @@ spec:
   template:
     metadata: {labels: {app: db}}
     spec:
-      priorityClassName: tenant-standard
+      priorityClassName: docuflow-interactive
+      automountServiceAccountToken: false
+      securityContext: {seccompProfile: {type: RuntimeDefault}, fsGroup: 999}
+      terminationGracePeriodSeconds: 60
       containers:
         - name: postgres
           image: pgvector/pgvector:pg16
           env:
             - {name: POSTGRES_USER, value: docuflow}
-            - {name: POSTGRES_PASSWORD, value: docuflow}
             - {name: POSTGRES_DB, value: docuflow}
+            - {name: POSTGRES_PASSWORD, valueFrom: {secretKeyRef: {name: docuflow-secrets, key: POSTGRES_PASSWORD}}}
             - {name: PGDATA, value: /var/lib/postgresql/data/pgdata}
-          args: ["-c", "max_connections=200", "-c", "shared_buffers=128MB"]
-          ports: [{containerPort: 5432}]
-          readinessProbe: {exec: {command: ["pg_isready", "-U", "docuflow"]}, periodSeconds: 3}
-          resources: {requests: {cpu: 100m, memory: 256Mi}, limits: {memory: 768Mi}}
-          volumeMounts: [{name: data, mountPath: /var/lib/postgresql/data}]
+          args: ["-c", "max_connections=300", "-c", "shared_buffers=256MB", "-c", "log_min_duration_statement=2000"]
+          ports: [{name: postgres, containerPort: 5432}]
+          readinessProbe: {exec: {command: ["pg_isready", "-U", "docuflow"]}, periodSeconds: 5}
+          livenessProbe: {exec: {command: ["pg_isready", "-U", "docuflow"]}, periodSeconds: 15, failureThreshold: 6, initialDelaySeconds: 30}
+          resources: {requests: {cpu: 250m, memory: 512Mi}, limits: {memory: 2Gi}}
+          securityContext: {allowPrivilegeEscalation: false}
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/postgresql/data}
+            - {name: shm, mountPath: /dev/shm}
+      volumes:
+        - {name: shm, emptyDir: {medium: Memory, sizeLimit: 256Mi}}
   volumeClaimTemplates:
     - metadata: {name: data}
-      spec: {accessModes: [ReadWriteOnce], resources: {requests: {storage: 2Gi}}}
+      spec: {accessModes: [ReadWriteOnce], resources: {requests: {storage: 5Gi}}}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: db}
+spec: {maxUnavailable: 0, selector: {matchLabels: {app: db}}}

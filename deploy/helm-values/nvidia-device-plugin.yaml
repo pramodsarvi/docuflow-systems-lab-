@@ -1,0 +1,15 @@
+# NVIDIA device plugin with time-slicing: each physical GPU is advertised as 6 `nvidia.com/gpu`, so the three model
+# servers (vlm x1-2 under KEDA, llm, embed) share one GPU. Time-slicing gives no memory isolation: each vLLM server sizes itself
+# with a fixed --kv-cache-memory-bytes so the servers fit side by side (see k8s/components/models).
+config:
+  map:
+    default: |-
+      version: v1
+      sharing:
+        timeSlicing:
+          renameByDefault: false
+          resources:
+            - name: nvidia.com/gpu
+              replicas: 6
+nodeSelector: {docuflow.io/pool: gpu}
+gfd: {enabled: false}

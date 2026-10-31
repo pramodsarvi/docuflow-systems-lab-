@@ -12,6 +12,8 @@ ENDPOINTS = {   # role -> (base url ending in /v1, bearer token)
     "llm": (os.environ.get("LLM_BASE_URL", "").rstrip("/"), os.environ.get("LLM_API_KEY", _KEY)),
     "embed": (os.environ.get("EMBED_BASE_URL", "").rstrip("/"), os.environ.get("EMBED_API_KEY", _KEY)),
 }
+# Work tokens on RabbitMQ (what KEDA scales workers on). Empty = workers poll Postgres directly.
+RABBITMQ_URL = os.environ.get("RABBITMQ_URL", "")
 HTTP_RETRIES = int(os.environ.get("HTTP_RETRIES", 3))
 VLM_MODEL = os.environ.get("VLM_MODEL", "gemma4:e2b-mlx")       # reads page images (printed + handwriting)
 LLM_MODEL = os.environ.get("LLM_MODEL", "qwen3:4b-instruct")    # agent / answer model
@@ -29,6 +31,10 @@ LEASE_SECONDS = int(os.environ.get("LEASE_SECONDS", 900))
 MAX_ATTEMPTS = int(os.environ.get("MAX_ATTEMPTS", 3))
 MAX_IMAGE_SIDE = int(os.environ.get("MAX_IMAGE_SIDE", 1280))
 AGENT_MAX_STEPS = int(os.environ.get("AGENT_MAX_STEPS", 6))
+WORKER_METRICS_PORT = int(os.environ.get("WORKER_METRICS_PORT", 9100))   # 0 disables the worker /health + /metrics server
+# Retention (`python -m docuflow gc`, run by a CronJob on Kubernetes)
+GC_DONE_JOBS_DAYS = int(os.environ.get("GC_DONE_JOBS_DAYS", 7))
+GC_QUERIES_DAYS = int(os.environ.get("GC_QUERIES_DAYS", 30))
 
 DATASETS = {
     # name: (hf repo, hf config, split, priority)
@@ -36,4 +42,7 @@ DATASETS = {
     "xfund":  dict(repo="nnul/xfund-multilingual", config=None, split="train"),
     "docvqa": dict(repo="lmms-lab/DocVQA", config="DocVQA", split="validation"),
     "iam":    dict(repo="Teklia/IAM-line", config=None, split="test"),
+    # Generated locally (no download): forms with printed labels and handwriting-style values. Used by the smoke
+    # tests, CI and the scaling demo, so the whole system can run offline.
+    "synthetic": dict(repo=None, config=None, split="gen"),
 }

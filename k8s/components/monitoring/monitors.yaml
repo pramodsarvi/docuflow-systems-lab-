@@ -1,0 +1,29 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata: {name: docuflow-api, labels: {release: kube-prometheus-stack}}
+spec:
+  selector: {matchLabels: {app: api}}
+  endpoints: [{port: http, path: /metrics, interval: 15s}]
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata: {name: docuflow-workers, labels: {release: kube-prometheus-stack}}
+spec:
+  selector: {matchLabels: {app.kubernetes.io/component: worker}}
+  podMetricsEndpoints: [{port: metrics, path: /metrics, interval: 15s}]
+---
+# vLLM model servers (vllm:* metrics: running/waiting requests, KV-cache usage, token throughput, latency histograms)
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata: {name: docuflow-models, labels: {release: kube-prometheus-stack}}
+spec:
+  selector: {matchLabels: {app.kubernetes.io/component: model-server}}
+  podMetricsEndpoints: [{port: http, path: /metrics, interval: 15s}]
+---
+# RabbitMQ (built-in rabbitmq_prometheus plugin): queue depth, publish/ack rates, consumers
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata: {name: docuflow-rabbitmq, labels: {release: kube-prometheus-stack}}
+spec:
+  selector: {matchLabels: {app: rabbitmq}}
+  podMetricsEndpoints: [{port: prometheus, path: /metrics/per-object, interval: 15s}]

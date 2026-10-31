@@ -1,0 +1,9 @@
+# Stand-in model server (Ollama API + OpenAI API, fixed latency, synthetic output). For clusters without real models.
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+resources: [sim-model.yaml]
+patches:
+  - target: {kind: ConfigMap, name: docuflow-config}
+    patch: |-
+      - {op: replace, path: /data/OLLAMA_URL, value: "http://sim-model:11434"}
+      - {op: replace, path: /data/LLM_BACKEND, value: ollama}

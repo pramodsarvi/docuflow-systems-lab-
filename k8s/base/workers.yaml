@@ -1,56 +1,99 @@
+# One Deployment per lane. Replicas are owned by KEDA (keda.yaml); every lane scales to zero when its queue is empty.
+# Scale-down sends SIGTERM: the worker finishes its current job (up to the grace period) and exits; anything cut off
+# is requeued by lease expiry.
+---
+# io: fetch slices from the dataset source, store page images
 apiVersion: apps/v1
 kind: Deployment
-metadata: {name: worker-io, namespace: docuflow, labels: {app: worker-io}}
+metadata: {name: worker-io, labels: {app: worker-io}}
 spec:
-  replicas: 1      # KEDA owns the replica count
+  replicas: 0
+  revisionHistoryLimit: 5
   selector: {matchLabels: {app: worker-io}}
   template:
-    metadata: {labels: {app: worker-io, docuflow-lane: io}}
+    metadata:
+      labels: {app: worker-io, app.kubernetes.io/component: worker, docuflow-lane: io}
+      annotations: {prometheus.io/scrape: "true", prometheus.io/port: "9100", prometheus.io/path: /metrics}
     spec:
-      priorityClassName: tenant-batch         # ingest yields to interactive tenants when GPUs run out
-      terminationGracePeriodSeconds: 180      # let the running job finish on scale-down
+      serviceAccountName: docuflow
+      priorityClassName: docuflow-batch
+      terminationGracePeriodSeconds: 180
+      securityContext: {runAsNonRoot: true, runAsUser: 10001, runAsGroup: 10001, seccompProfile: {type: RuntimeDefault}}
       containers:
         - name: worker
-          image: docuflow:dev
+          image: docuflow
           imagePullPolicy: IfNotPresent
           command: ["python", "-m", "docuflow", "worker", "io"]
-          envFrom: [{configMapRef: {name: docuflow-config}}]
-          resources: {requests: {cpu: 100m, memory: 512Mi}, limits: {memory: 3Gi}}   # XFUND pages are ~2480px scans
+          envFrom:
+            - configMapRef: {name: docuflow-config}
+            - secretRef: {name: docuflow-secrets}
+          ports: [{name: metrics, containerPort: 9100}]
+          livenessProbe: {httpGet: {path: /health, port: metrics}, initialDelaySeconds: 20, periodSeconds: 15, failureThreshold: 4}
+          resources: {requests: {cpu: 200m, memory: 512Mi}, limits: {memory: 3Gi}}   # XFUND pages are ~2480px scans
+          securityContext: {readOnlyRootFilesystem: true, allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+          volumeMounts: [{name: tmp, mountPath: /tmp}]
+      volumes: [{name: tmp, emptyDir: {sizeLimit: 2Gi}}]
 ---
+# vlm: page reading with the vision model (the expensive lane)
 apiVersion: apps/v1
 kind: Deployment
-metadata: {name: worker-vlm, namespace: docuflow, labels: {app: worker-vlm}}
+metadata: {name: worker-vlm, labels: {app: worker-vlm}}
 spec:
-  replicas: 0      # KEDA owns the replica count
+  replicas: 0
+  revisionHistoryLimit: 5
   selector: {matchLabels: {app: worker-vlm}}
   template:
-    metadata: {labels: {app: worker-vlm, docuflow-lane: vlm}}
+    metadata:
+      labels: {app: worker-vlm, app.kubernetes.io/component: worker, docuflow-lane: vlm}
+      annotations: {prometheus.io/scrape: "true", prometheus.io/port: "9100", prometheus.io/path: /metrics}
     spec:
-      priorityClassName: tenant-batch         # ingest yields to interactive tenants when GPUs run out
-      terminationGracePeriodSeconds: 180      # let the running job finish on scale-down
+      serviceAccountName: docuflow
+      priorityClassName: docuflow-batch
+      terminationGracePeriodSeconds: 180
+      securityContext: {runAsNonRoot: true, runAsUser: 10001, runAsGroup: 10001, seccompProfile: {type: RuntimeDefault}}
       containers:
         - name: worker
-          image: docuflow:dev
+          image: docuflow
           imagePullPolicy: IfNotPresent
           command: ["python", "-m", "docuflow", "worker", "vlm"]
-          envFrom: [{configMapRef: {name: docuflow-config}}]
-          resources: {requests: {cpu: 100m, memory: 192Mi, nvidia.com/gpu: 1}, limits: {memory: 512Mi, nvidia.com/gpu: 1}}
+          envFrom:
+            - configMapRef: {name: docuflow-config}
+            - secretRef: {name: docuflow-secrets}
+          ports: [{name: metrics, containerPort: 9100}]
+          livenessProbe: {httpGet: {path: /health, port: metrics}, initialDelaySeconds: 20, periodSeconds: 15, failureThreshold: 4}
+          resources: {requests: {cpu: 100m, memory: 256Mi}, limits: {memory: 768Mi}}
+          securityContext: {readOnlyRootFilesystem: true, allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+          volumeMounts: [{name: tmp, mountPath: /tmp}]
+      volumes: [{name: tmp, emptyDir: {sizeLimit: 2Gi}}]
 ---
+# embed: embed chunks and mark pages indexed
 apiVersion: apps/v1
 kind: Deployment
-metadata: {name: worker-embed, namespace: docuflow, labels: {app: worker-embed}}
+metadata: {name: worker-embed, labels: {app: worker-embed}}
 spec:
-  replicas: 1      # KEDA owns the replica count
+  replicas: 0
+  revisionHistoryLimit: 5
   selector: {matchLabels: {app: worker-embed}}
   template:
-    metadata: {labels: {app: worker-embed, docuflow-lane: embed}}
+    metadata:
+      labels: {app: worker-embed, app.kubernetes.io/component: worker, docuflow-lane: embed}
+      annotations: {prometheus.io/scrape: "true", prometheus.io/port: "9100", prometheus.io/path: /metrics}
     spec:
-      priorityClassName: tenant-batch         # ingest yields to interactive tenants when GPUs run out
-      terminationGracePeriodSeconds: 180      # let the running job finish on scale-down
+      serviceAccountName: docuflow
+      priorityClassName: docuflow-batch
+      terminationGracePeriodSeconds: 180
+      securityContext: {runAsNonRoot: true, runAsUser: 10001, runAsGroup: 10001, seccompProfile: {type: RuntimeDefault}}
       containers:
         - name: worker
-          image: docuflow:dev
+          image: docuflow
           imagePullPolicy: IfNotPresent
           command: ["python", "-m", "docuflow", "worker", "embed"]
-          envFrom: [{configMapRef: {name: docuflow-config}}]
-          resources: {requests: {cpu: 100m, memory: 192Mi}, limits: {memory: 512Mi}}
+          envFrom:
+            - configMapRef: {name: docuflow-config}
+            - secretRef: {name: docuflow-secrets}
+          ports: [{name: metrics, containerPort: 9100}]
+          livenessProbe: {httpGet: {path: /health, port: metrics}, initialDelaySeconds: 20, periodSeconds: 15, failureThreshold: 4}
+          resources: {requests: {cpu: 100m, memory: 256Mi}, limits: {memory: 768Mi}}
+          securityContext: {readOnlyRootFilesystem: true, allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+          volumeMounts: [{name: tmp, mountPath: /tmp}]
+      volumes: [{name: tmp, emptyDir: {sizeLimit: 2Gi}}]

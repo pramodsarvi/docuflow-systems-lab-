@@ -1,0 +1,29 @@
+# Lean monitoring for the local cluster: Prometheus + Grafana + kube-state-metrics + node-exporter, no Alertmanager UI ingress.
+prometheus:
+  prometheusSpec:
+    # Pick up ServiceMonitors / PodMonitors / PrometheusRules from every namespace, not only those labelled for the release.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    retention: 3d
+    resources: {requests: {cpu: 200m, memory: 512Mi}}
+    nodeSelector: {docuflow.io/pool: cpu}
+grafana:
+  adminPassword: docuflow          # local only; change for anything shared
+  sidecar:
+    dashboards: {enabled: true, label: grafana_dashboard, searchNamespace: ALL}
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts: [grafana.localtest.me]
+  nodeSelector: {docuflow.io/pool: cpu}
+alertmanager:
+  alertmanagerSpec: {nodeSelector: {docuflow.io/pool: cpu}}
+kube-state-metrics:
+  nodeSelector: {docuflow.io/pool: cpu}
+prometheusOperator:
+  nodeSelector: {docuflow.io/pool: cpu}
+kubeEtcd: {enabled: false}
+kubeControllerManager: {enabled: false}
+kubeScheduler: {enabled: false}
+kubeProxy: {enabled: false}

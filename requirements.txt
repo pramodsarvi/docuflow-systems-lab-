@@ -1,10 +1,11 @@
-fastapi
-uvicorn[standard]
-psycopg[binary,pool]
-pgvector
-httpx
-numpy
-pillow
-datasets
-pydantic
-pytest
+# Runtime dependencies (pinned for reproducible images; bump deliberately)
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+psycopg[binary,pool]==3.3.6
+pgvector==0.5.1
+httpx==0.28.1
+numpy==2.5.4
+pillow==13.0.0
+datasets==5.1.0
+pydantic==2.14.2
+pika==1.3.2

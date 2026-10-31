@@ -1,0 +1,24 @@
+# Hugging Face cache shared by the three model servers. Locally it is a hostPath on the GPU node (mounted from the host's
+# /var/cache/docuflow-hf, so ~25 GB of weights survive cluster rebuilds). Prod overlays replace the PV with a real
+# ReadWriteMany volume (Azure Files / EFS / Filestore) or a node-local cache.
+apiVersion: v1
+kind: PersistentVolume
+metadata: {name: docuflow-model-cache}
+spec:
+  capacity: {storage: 100Gi}
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: docuflow-model-cache
+  hostPath: {path: /var/cache/docuflow-hf, type: DirectoryOrCreate}
+  nodeAffinity:
+    required:
+      nodeSelectorTerms: [{matchExpressions: [{key: docuflow.io/pool, operator: In, values: [gpu]}]}]
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: model-cache}
+spec:
+  accessModes: [ReadWriteMany]
+  storageClassName: docuflow-model-cache
+  volumeName: docuflow-model-cache
+  resources: {requests: {storage: 100Gi}}

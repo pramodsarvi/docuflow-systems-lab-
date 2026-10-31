@@ -1,0 +1,32 @@
+# KEDA autoscales the page-reading vLLM container on vLLM's own load (running + waiting requests, from Prometheus).
+# Locally: 1..2 replicas, both time-sliced onto the one L40S (each ~12 GB: 3B weights + fixed 3 GiB KV cache).
+# Prod (overlays/prod): 1..4 replicas on whole GPUs, nodes added by the GPU pool's cluster autoscaler.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata: {name: model-vlm}
+spec:
+  scaleTargetRef: {name: model-vlm}
+  minReplicaCount: 1
+  maxReplicaCount: 2
+  pollingInterval: 15
+  cooldownPeriod: 300              # model servers take a minute or more to start; do not flap
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp: {stabilizationWindowSeconds: 30, policies: [{type: Pods, value: 1, periodSeconds: 60}]}
+        scaleDown: {stabilizationWindowSeconds: 300, policies: [{type: Pods, value: 1, periodSeconds: 120}]}
+  triggers:
+    - type: prometheus
+      name: vllm-load
+      metadata:
+        serverAddress: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
+        query: >-
+          sum(vllm:num_requests_running{namespace="docuflow", pod=~"model-vlm-.*"})
+          + sum(vllm:num_requests_waiting{namespace="docuflow", pod=~"model-vlm-.*"}) or vector(0)
+        threshold: "4"             # in-flight requests per replica before adding another (max-num-seqs is 16)
+        activationThreshold: "0"
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: models}
+spec: {maxUnavailable: 1, selector: {matchLabels: {app.kubernetes.io/component: model-server}}}

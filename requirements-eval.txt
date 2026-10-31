@@ -1,0 +1,9 @@
+# RAGAS evaluation (evals/ragas_eval.py). Separate from the app: RAGAS pulls in LangChain. This set is pinned because
+# newer langchain-community releases break `import ragas` 0.2/0.4.
+httpx==0.28.1
+pillow==13.0.0
+ragas==0.2.15
+langchain==0.3.25
+langchain-core==0.3.63
+langchain-community==0.3.21
+langchain-openai==0.3.18

@@ -1,0 +1,12 @@
+# Model servers: only docuflow pods (api, workers) and Prometheus.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: models-ingress}
+spec:
+  podSelector: {matchLabels: {app.kubernetes.io/component: model-server}}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: {matchLabels: {app.kubernetes.io/part-of: docuflow}}
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: monitoring}}
+      ports: [{port: 8000}]

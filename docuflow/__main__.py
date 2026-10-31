@@ -19,12 +19,14 @@ def _api(path, method="GET", base=None, **kw):
 def main():
     ap = argparse.ArgumentParser(prog="docuflow")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("init", help="create schema")
+    sub.add_parser("init", help="create schema (idempotent; also run by every pod at startup)")
+    g = sub.add_parser("gc", help="retention: delete old finished jobs and query traces")
+    g.add_argument("--done-days", type=int); g.add_argument("--query-days", type=int)
     sub.add_parser("reset", help="wipe all data")
-    u = sub.add_parser("up", help="start api + workers"); u.add_argument("--port", type=int, default=8791)
+    u = sub.add_parser("up", help="start api + workers"); u.add_argument("--port", type=int, default=8791); u.add_argument("--host", default="127.0.0.1")
     w = sub.add_parser("worker"); w.add_argument("lane", choices=list(config.LANE_PROCS))
     i = sub.add_parser("ingest"); i.add_argument("dataset"); i.add_argument("-n", "--limit", type=int, default=10)
-    i.add_argument("--offset", type=int, default=0); i.add_argument("--mode", default="vlm", choices=["vlm", "gt"])
+    i.add_argument("--offset", type=int, default=0); i.add_argument("--mode", default="vlm", choices=["vlm", "gt"]); i.add_argument("--split")
     i.add_argument("--priority", type=int, default=0)
     a = sub.add_parser("ask"); a.add_argument("question"); a.add_argument("--dataset"); a.add_argument("--trace", action="store_true")
     sub.add_parser("status")
@@ -37,6 +39,10 @@ def main():
 
     if args.cmd == "init":
         db.init_schema(); print("schema ready")
+    elif args.cmd == "gc":
+        from . import jobs
+        db.init_schema()
+        print(json.dumps(jobs.gc(args.done_days, args.query_days)))
     elif args.cmd == "reset":
         db.init_schema(); db.reset(); print("all data removed")
     elif args.cmd == "up":
@@ -45,12 +51,12 @@ def main():
         n = jobs.requeue_running()
         if n:
             print(f"requeued {n} orphaned jobs")
-        supervisor.main(port=args.port)
+        supervisor.main(host=args.host, port=args.port)
     elif args.cmd == "worker":
         from . import worker
         worker.run(args.lane)
     elif args.cmd == "ingest":
-        print(json.dumps(_api("/ingest", "POST", json=dict(dataset=args.dataset, limit=args.limit, offset=args.offset, mode=args.mode, priority=args.priority))))
+        print(json.dumps(_api("/ingest", "POST", json=dict(dataset=args.dataset, limit=args.limit, offset=args.offset, mode=args.mode, priority=args.priority, split=args.split))))
     elif args.cmd == "ask":
         r = _api("/query", "POST", json=dict(question=args.question, dataset=args.dataset))
         if args.trace:

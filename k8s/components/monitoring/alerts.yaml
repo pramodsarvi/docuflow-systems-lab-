@@ -1,0 +1,59 @@
+# The queue gauges come from the database, so every API replica reports the same values: aggregate with max().
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata: {name: docuflow, labels: {release: kube-prometheus-stack}}
+spec:
+  groups:
+    - name: docuflow
+      rules:
+        - alert: DocuflowAPIDown
+          expr: absent(up{namespace="docuflow", service="api"} == 1)
+          for: 5m
+          labels: {severity: critical}
+          annotations:
+            summary: No docuflow API replica is up
+            description: Queries and ingest requests are failing. Check `kubectl -n docuflow get pods -l app=api`.
+        - alert: DocuflowDeadJobs
+          expr: max by (lane) (docuflow_jobs{status="dead"}) > 0
+          for: 15m
+          labels: {severity: warning}
+          annotations:
+            summary: "{{ $value }} dead jobs in lane {{ $labels.lane }}"
+            description: Jobs exhausted their retries. Inspect with `GET /jobs?status=dead`, fix the cause, then `POST /workloads/retry-dead`.
+        - alert: DocuflowBacklogStale
+          expr: max by (lane) (docuflow_oldest_queued_age_seconds) > 1800
+          for: 10m
+          labels: {severity: warning}
+          annotations:
+            summary: "Oldest queued {{ $labels.lane }} job is {{ $value | humanizeDuration }} old"
+            description: Workers are not keeping up, the lane or dataset is paused, or KEDA cannot scale (GPUs exhausted, scaler errors).
+        - alert: DocuflowJobFailureRate
+          expr: |
+            sum by (lane) (rate(docuflow_worker_jobs_total{result!="ok"}[10m]))
+              / sum by (lane) (rate(docuflow_worker_jobs_total[10m])) > 0.2
+          for: 10m
+          labels: {severity: warning}
+          annotations:
+            summary: "More than 20% of {{ $labels.lane }} jobs are failing"
+            description: Usually the model backend (timeouts, 429/5xx) or the dataset source. Check worker logs.
+        - alert: DocuflowModelServerDown
+          expr: kube_deployment_status_replicas_available{namespace="docuflow", deployment=~"model-.*"} < 1
+          for: 10m
+          labels: {severity: critical}
+          annotations:
+            summary: "Model server {{ $labels.deployment }} has no ready replica"
+            description: Page reading, the agent or embeddings are failing. Check GPU memory (fractions must sum < 1 per GPU) and `kubectl -n docuflow logs deploy/{{ $labels.deployment }}`.
+        - alert: DocuflowModelQueueing
+          expr: max by (pod) (vllm:num_requests_waiting{namespace="docuflow"}) > 8
+          for: 10m
+          labels: {severity: warning}
+          annotations:
+            summary: "{{ $labels.pod }} has {{ $value }} requests waiting"
+            description: The model server is saturated (KV cache full). Lower worker maxReplicaCount, raise --max-num-seqs, or add GPUs.
+        - alert: DocuflowGPUMemoryHigh
+          expr: max by (gpu, Hostname) (DCGM_FI_DEV_FB_USED / (DCGM_FI_DEV_FB_USED + DCGM_FI_DEV_FB_FREE)) > 0.97
+          for: 15m
+          labels: {severity: warning}
+          annotations:
+            summary: "GPU {{ $labels.gpu }} memory above 97%"
+            description: Time-sliced model servers share GPU memory without isolation; one more process may fail with CUDA OOM.

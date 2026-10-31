@@ -1,0 +1,31 @@
+# Local cluster with a real NVIDIA GPU (scripts/cluster-up.sh): vLLM model servers on the GPU node (time-sliced),
+# KEDA-scaled docuflow workers, Prometheus/Grafana monitoring, ingress at http://docuflow.localtest.me
+#   kubectl apply -k k8s/overlays/local-gpu        (make deploy)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: docuflow
+resources: [../../base]
+components:
+  - ../../components/models
+  - ../../components/monitoring
+  - ../../components/ingress
+secretGenerator:
+  # Local-only credentials. Real clusters create docuflow-secrets out of band (see overlays/prod).
+  - name: docuflow-secrets
+    # fully qualified hosts: KEDA's scalers resolve them from the keda namespace
+    literals:
+      - POSTGRES_PASSWORD=docuflow-local
+      - DOCUFLOW_DSN=postgresql://docuflow:docuflow-local@db.docuflow.svc.cluster.local:5432/docuflow?sslmode=disable
+      - DOCUFLOW_API_KEY=
+      - LLM_API_KEY=none
+      - RABBITMQ_PASSWORD=docuflow-local
+      - RABBITMQ_URL=amqp://docuflow:docuflow-local@rabbitmq.docuflow.svc.cluster.local:5672/%2F
+    options: {disableNameSuffixHash: true}    # KEDA's TriggerAuthentication refers to it by name
+patches:
+  # keep the app off the GPU node; only model servers (which tolerate the taint) go there
+  - target: {kind: Deployment, name: "api|worker-.*"}
+    patch: |-
+      - {op: add, path: /spec/template/spec/nodeSelector, value: {docuflow.io/pool: cpu}}
+  - target: {kind: StatefulSet, name: db}
+    patch: |-
+      - {op: add, path: /spec/template/spec/nodeSelector, value: {docuflow.io/pool: cpu}}

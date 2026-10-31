@@ -1,20 +1,27 @@
-# Shared settings for every docuflow pod. Switch OLLAMA_URL to use real models (see `make k8s-real`).
+# Non-secret settings shared by every docuflow pod. Credentials (DSN, API keys) live in the `docuflow-secrets` Secret.
 apiVersion: v1
 kind: ConfigMap
-metadata: {name: docuflow-config, namespace: docuflow}
+metadata: {name: docuflow-config}
 data:
-  DOCUFLOW_DSN: postgresql://docuflow:docuflow@db.docuflow.svc.cluster.local:5432/docuflow?sslmode=disable
-  OLLAMA_URL: http://sim-model:11434           # real: http://host.docker.internal:11434
+  LLM_BACKEND: ollama
+  OLLAMA_URL: http://ollama:11434
   VLM_MODEL: gemma4:e2b-mlx
   LLM_MODEL: qwen3:4b-instruct
   EMBED_MODEL: qwen3-embedding:0.6b
-  # Pod count is the concurrency limit on Kubernetes; the in-app limits only need to sit above the max replicas.
-  LIMIT_IO: "4"
-  LIMIT_VLM: "12"
-  LIMIT_EMBED: "6"
-  PROCS_IO: "4"
-  PROCS_VLM: "12"
-  PROCS_EMBED: "6"
-  PER_DATASET_CAP: "6"
+  # On Kubernetes the pod count (KEDA) is the real concurrency limit; in-app limits only need to sit above the max replicas.
+  LIMIT_IO: "8"
+  LIMIT_VLM: "16"
+  LIMIT_EMBED: "8"
+  PROCS_IO: "8"
+  PROCS_VLM: "16"
+  PROCS_EMBED: "8"
+  PER_DATASET_CAP: "8"
+  # Queries run on their own model servers (model-llm, model-embed), so page reading does not need to pause for them
+  # (the local single-machine default does, because one Ollama serves everything).
+  YIELD_TO_QUERIES: "0"
   LEASE_SECONDS: "300"
+  HTTP_RETRIES: "4"
+  WORKER_METRICS_PORT: "9100"
+  GC_DONE_JOBS_DAYS: "7"
+  GC_QUERIES_DAYS: "30"
   HF_HOME: /tmp/hf

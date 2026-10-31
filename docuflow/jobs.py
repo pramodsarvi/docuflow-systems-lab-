@@ -9,7 +9,7 @@ Rules enforced when a worker claims a job (all adjustable live through the `cont
 """
 import time
 
-from . import config, db
+from . import broker, config, db
 
 LANE_OF = {"fetch": "io", "extract": "vlm", "embed": "embed"}
 STAGE_PRIORITY = {"embed": 20, "extract": 10, "fetch": 0}   # downstream stages first, so documents finish and become queryable
@@ -18,10 +18,17 @@ STAGE_PRIORITY = {"embed": 20, "extract": 10, "fetch": 0}   # downstream stages 
 def enqueue(stage, dataset, payload, batch_id=None, priority=0, conn=None):
     sql = ("INSERT INTO jobs (batch_id, dataset, stage, lane, priority, payload) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id")
     args = (batch_id, dataset, stage, LANE_OF[stage], priority + STAGE_PRIORITY[stage], db.jb(payload))
-    if conn is not None:
+    if conn is not None:      # caller's transaction: the caller publishes the token after commit (notify_after)
         return conn.execute(sql, args).fetchone()["id"]
     with db.pool().connection() as c:
-        return c.execute(sql, args).fetchone()["id"]
+        jid = c.execute(sql, args).fetchone()["id"]
+    broker.notify(LANE_OF[stage])
+    return jid
+
+
+def notify_after(stage, n=1):
+    """Publish tokens for jobs enqueued inside a caller's transaction, once it has committed."""
+    broker.notify(LANE_OF[stage], n)
 
 
 def queries_in_flight():
@@ -82,27 +89,52 @@ def fail(job, err):
         c.execute("""UPDATE jobs SET status=%s, error=%s, locked_by=NULL, finished_at=CASE WHEN %s THEN now() END,
                      run_after = now() + make_interval(secs => %s) WHERE id=%s""",
                   ("dead" if dead else "queued", str(err)[:2000], dead, delay, job["id"]))
+    if not dead:
+        broker.notify(job["lane"], 1, delay_seconds=delay)   # comes back to the lane queue when the backoff expires
     return dead
 
 
 def reap():
     """Requeue jobs whose worker vanished (lease expired)."""
     with db.pool().connection() as c:
-        return c.execute("""UPDATE jobs SET status='queued', locked_by=NULL, error='lease expired'
-                            WHERE status='running' AND locked_at < now() - make_interval(secs => %s)""",
-                         (config.LEASE_SECONDS,)).rowcount
+        rows = c.execute("""UPDATE jobs SET status='queued', locked_by=NULL, error='lease expired'
+                            WHERE status='running' AND locked_at < now() - make_interval(secs => %s) RETURNING lane""",
+                         (config.LEASE_SECONDS,)).fetchall()
+    _notify_rows(rows)
+    return len(rows)
+
+
+def _notify_rows(rows):
+    for lane in {r["lane"] for r in rows}:
+        broker.notify(lane, sum(r["lane"] == lane for r in rows))
 
 
 def requeue_running():
     """Startup recovery: no workers exist yet, so anything still 'running' was orphaned by an unclean shutdown."""
     with db.pool().connection() as c:
-        return c.execute("UPDATE jobs SET status='queued', locked_by=NULL, error='orphaned at startup' WHERE status='running'").rowcount
+        rows = c.execute("UPDATE jobs SET status='queued', locked_by=NULL, error='orphaned at startup' WHERE status='running' RETURNING lane").fetchall()
+    _notify_rows(rows)
+    return len(rows)
+
+
+def gc(done_days=None, query_days=None):
+    """Retention: drop finished jobs and old query traces so the queue tables stay small. Dead jobs are kept for
+    inspection until someone retries or deletes them."""
+    done_days = config.GC_DONE_JOBS_DAYS if done_days is None else done_days
+    query_days = config.GC_QUERIES_DAYS if query_days is None else query_days
+    with db.pool().connection() as c:
+        j = c.execute("DELETE FROM jobs WHERE status='done' AND finished_at < now() - make_interval(days => %s)", (done_days,)).rowcount
+        q = c.execute("DELETE FROM queries WHERE created_at < now() - make_interval(days => %s)", (query_days,)).rowcount
+        i = c.execute("DELETE FROM inflight WHERE beat < now() - interval '1 hour'").rowcount
+    return {"jobs_deleted": j, "queries_deleted": q, "stale_inflight_deleted": i}
 
 
 def retry_dead(dataset=None):
     with db.pool().connection() as c:
-        return c.execute("UPDATE jobs SET status='queued', attempts=0, run_after=now(), error=NULL "
-                         "WHERE status='dead' AND (%s::text IS NULL OR dataset=%s)", (dataset, dataset)).rowcount
+        rows = c.execute("UPDATE jobs SET status='queued', attempts=0, run_after=now(), error=NULL "
+                         "WHERE status='dead' AND (%s::text IS NULL OR dataset=%s) RETURNING lane", (dataset, dataset)).fetchall()
+    _notify_rows(rows)
+    return len(rows)
 
 
 def snapshot():

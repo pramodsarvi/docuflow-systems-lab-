@@ -1,0 +1,16 @@
+# Interactive serving (api, db) outranks ingest. Ingest workers never preempt anything themselves, and are the first to be
+# preempted when GPUs or CPU run out, so a burst of ingest cannot slow down queries.
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata: {name: docuflow-interactive}
+value: 100000
+globalDefault: false
+description: docuflow API and database
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata: {name: docuflow-batch}
+value: 1000
+preemptionPolicy: Never
+globalDefault: false
+description: docuflow ingest workers (scaled by KEDA, safe to interrupt; jobs requeue on lease expiry)

@@ -1,0 +1,41 @@
+# Nightly logical backup of the in-cluster Postgres to a dedicated volume, keeping the last 7 dumps.
+# With a managed Postgres, use its point-in-time recovery instead and delete this.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: db-backups}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: managed-csi-premium
+  resources: {requests: {storage: 200Gi}}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata: {name: db-backup}
+spec:
+  schedule: "30 2 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata: {labels: {app: db-backup}}
+        spec:
+          serviceAccountName: docuflow
+          restartPolicy: Never
+          securityContext: {runAsUser: 999, runAsGroup: 999, fsGroup: 999, seccompProfile: {type: RuntimeDefault}}
+          containers:
+            - name: pg-dump
+              image: pgvector/pgvector:pg16
+              command: ["/bin/sh", "-c"]
+              args:
+                - set -e; f=/backups/docuflow-$(date +%Y%m%d-%H%M%S).dump;
+                  pg_dump --format=custom --compress=6 --file="$f" "$DOCUFLOW_DSN";
+                  ls -1t /backups/*.dump | tail -n +8 | xargs -r rm -f; ls -lh /backups
+              env:
+                - {name: DOCUFLOW_DSN, valueFrom: {secretKeyRef: {name: docuflow-secrets, key: DOCUFLOW_DSN}}}
+              resources: {requests: {cpu: 250m, memory: 256Mi}, limits: {memory: 1Gi}}
+              securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+              volumeMounts: [{name: backups, mountPath: /backups}]
+          volumes: [{name: backups, persistentVolumeClaim: {claimName: db-backups}}]

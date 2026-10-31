@@ -1,10 +1,64 @@
+# Local stack.
+#   docker compose up -d db rabbitmq             Postgres + pgvector on :5434, RabbitMQ on :5673 (for `make up` / tests)
+#   docker compose --profile full up -d --build  everything in containers: db, model simulator, api (:8791), one worker per lane
+# Point the full stack at real Ollama with: OLLAMA_URL=http://host.docker.internal:11434 docker compose --profile full up -d
+x-app: &app
+  image: docuflow:dev
+  build: .
+  profiles: [full]
+  restart: unless-stopped
+  depends_on: {db: {condition: service_healthy}, rabbitmq: {condition: service_healthy}}
+  environment: &env
+    DOCUFLOW_DSN: postgresql://docuflow:docuflow@db:5432/docuflow
+    OLLAMA_URL: ${OLLAMA_URL:-http://sim-model:11434}
+    DOCUFLOW_API_KEY: ${DOCUFLOW_API_KEY:-}
+    RABBITMQ_URL: amqp://docuflow:docuflow@rabbitmq:5672/%2F
+    YIELD_TO_QUERIES: "0"
+    LIMIT_IO: "4"
+    LIMIT_VLM: "4"
+    LIMIT_EMBED: "4"
+    PER_DATASET_CAP: "4"
+  extra_hosts: ["host.docker.internal:host-gateway"]
+
 services:
   db:
     image: pgvector/pgvector:pg16
     container_name: docuflow-db
     environment: {POSTGRES_USER: docuflow, POSTGRES_PASSWORD: docuflow, POSTGRES_DB: docuflow}
+    command: ["postgres", "-c", "max_connections=200"]
     ports: ["5434:5432"]
     volumes: [dbdata:/var/lib/postgresql/data]
     healthcheck: {test: ["CMD-SHELL", "pg_isready -U docuflow"], interval: 3s, retries: 20}
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: docuflow-mq
+    environment: {RABBITMQ_DEFAULT_USER: docuflow, RABBITMQ_DEFAULT_PASS: docuflow}
+    ports: ["5673:5672", "15673:15672"]      # AMQP, management UI (http://localhost:15673)
+    healthcheck: {test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"], interval: 5s, retries: 30}
+
+  sim-model:
+    <<: *app
+    depends_on: []
+    command: ["python", "-m", "docuflow.simmodel"]
+    environment: {SIM_VLM_SECONDS: "3", SIM_LLM_SECONDS: "0.5"}
+
+  api:
+    <<: *app
+    command: ["uvicorn", "docuflow.api:app", "--host", "0.0.0.0", "--port", "8791"]
+    ports: ["8791:8791"]
+    healthcheck: {test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8791/ready')"], interval: 5s, retries: 20}
+
+  worker-io:
+    <<: *app
+    command: ["python", "-m", "docuflow", "worker", "io"]
+  worker-vlm:
+    <<: *app
+    command: ["python", "-m", "docuflow", "worker", "vlm"]
+    deploy: {replicas: 2}
+  worker-embed:
+    <<: *app
+    command: ["python", "-m", "docuflow", "worker", "embed"]
+
 volumes:
   dbdata:

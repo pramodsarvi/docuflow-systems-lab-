@@ -1,0 +1,3 @@
+# GPU utilisation, memory and power per GPU into Prometheus (ServiceMonitor picked up by kube-prometheus-stack).
+serviceMonitor: {enabled: true, interval: 15s}
+nodeSelector: {docuflow.io/pool: gpu}

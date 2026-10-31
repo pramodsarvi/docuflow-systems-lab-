@@ -9,6 +9,10 @@ from psycopg_pool import ConnectionPool
 
 from . import config
 
+# Full-text vector for chunks. Hyphens between letters/digits become spaces first: the default parser reads "INV-1005"
+# as 'inv' + '-1005' (a negative number), so a search for "1005" would never match the document code.
+TSV_EXPR = """to_tsvector('simple', regexp_replace(text, '([[:alnum:]])-([[:alnum:]])', '\\1 \\2', 'g'))"""
+
 SCHEMA = f"""
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE TABLE IF NOT EXISTS documents (
@@ -23,7 +27,7 @@ CREATE TABLE IF NOT EXISTS chunks (
   id bigserial PRIMARY KEY, doc_id text NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
   dataset text NOT NULL, lang text, seq int, kinds text[], text text NOT NULL,
   embedding vector({config.EMBED_DIM}),
-  tsv tsvector GENERATED ALWAYS AS (to_tsvector('simple', text)) STORED);
+  tsv tsvector GENERATED ALWAYS AS ({TSV_EXPR}) STORED);
 CREATE INDEX IF NOT EXISTS chunks_doc ON chunks(doc_id);
 CREATE INDEX IF NOT EXISTS chunks_tsv ON chunks USING gin(tsv);
 CREATE INDEX IF NOT EXISTS chunks_emb ON chunks USING hnsw (embedding vector_cosine_ops);
@@ -73,8 +77,19 @@ def init_schema():
             c.execute("CREATE EXTENSION IF NOT EXISTS vector")
             with pool().connection() as c2:
                 c2.execute(SCHEMA)
+                _migrate(c2)
         finally:
             c.execute("SELECT pg_advisory_unlock(727)")
+
+
+def _migrate(c):
+    """In-place upgrades for databases created by older versions (runs under the schema advisory lock)."""
+    expr = c.execute("""SELECT pg_get_expr(d.adbin, d.adrelid) e FROM pg_attrdef d JOIN pg_attribute a
+                        ON a.attrelid=d.adrelid AND a.attnum=d.adnum WHERE d.adrelid='chunks'::regclass AND a.attname='tsv'""").fetchone()
+    if expr and "regexp_replace" not in expr["e"]:      # v0.1 tokenised "INV-1005" as 'inv' + '-1005'
+        c.execute("ALTER TABLE chunks DROP COLUMN tsv")
+        c.execute(f"ALTER TABLE chunks ADD COLUMN tsv tsvector GENERATED ALWAYS AS ({TSV_EXPR}) STORED")
+        c.execute("CREATE INDEX IF NOT EXISTS chunks_tsv ON chunks USING gin(tsv)")
 
 
 def reset():

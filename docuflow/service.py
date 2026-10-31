@@ -15,6 +15,7 @@ def ingest(dataset, limit=10, offset=0, split=None, mode="vlm", priority=0):
             jobs.enqueue("fetch", dataset, dict(dataset=dataset, split=split, offset=o, limit=min(FETCH_SLICE, offset + limit - o),
                                                 mode=mode, priority=priority), bid, priority, conn=c)
             n += 1
+    jobs.notify_after("fetch", n)
     return {"batch_id": bid, "fetch_jobs": n, "request": req}
 
 

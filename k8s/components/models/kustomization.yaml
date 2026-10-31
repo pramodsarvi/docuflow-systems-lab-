@@ -1,0 +1,22 @@
+# Real model servers on NVIDIA GPUs: one vLLM OpenAI-compatible server per role.
+#   model-vlm    Qwen2.5-VL-3B-Instruct   page reading + the agent's "look at the page" tool (7B in prod); KEDA 1..N
+#   model-llm    Qwen3-4B-Instruct-2507   the agent loop
+#   model-embed  Qwen3-Embedding-0.6B     1024-dim embeddings (matches the chunks.embedding column)
+# Each requests one `nvidia.com/gpu`. With device-plugin time-slicing (local cluster) they share one physical GPU, so
+# each gets a fixed --kv-cache-memory-bytes: vLLM's memory profiling miscounts when several servers start on one GPU
+# at the same time. Measured on an L40S: vlm 3B + llm + embed = 27 GB, room for a second vlm replica. Prod uses whole GPUs.
+# docuflow's own workers request no GPU: they are clients, and vLLM batches their concurrent requests.
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+resources: [model-cache.yaml, vlm.yaml, llm.yaml, embed.yaml, autoscaling.yaml, networkpolicy.yaml]
+patches:
+  - target: {kind: ConfigMap, name: docuflow-config}
+    patch: |-
+      - {op: replace, path: /data/LLM_BACKEND, value: openai}
+      - {op: replace, path: /data/OLLAMA_URL, value: ""}
+      - {op: add, path: /data/VLM_BASE_URL, value: "http://model-vlm:8000/v1"}
+      - {op: add, path: /data/LLM_BASE_URL, value: "http://model-llm:8000/v1"}
+      - {op: add, path: /data/EMBED_BASE_URL, value: "http://model-embed:8000/v1"}
+      - {op: replace, path: /data/VLM_MODEL, value: vlm-model}
+      - {op: replace, path: /data/LLM_MODEL, value: standard-model}
+      - {op: replace, path: /data/EMBED_MODEL, value: embed-model}

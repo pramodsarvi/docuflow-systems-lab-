@@ -1,0 +1,7 @@
+# Prod: weights cache on a ReadWriteMany volume from the cluster's file storage class instead of a hostPath PV.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: model-cache}
+spec:
+  storageClassName: azurefile-csi-premium
+  volumeName: ""

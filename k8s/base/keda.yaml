@@ -1,55 +1,133 @@
-# One ScaledObject per lane, driven by the number of queued + running jobs in Postgres.
-# Same KEDA/HPA mechanism as the llm-d tenants, with a Postgres scaler instead of Prometheus.
+# Everything is scaled by KEDA (which drives an HPA per target).
+#
+#   worker-io / worker-vlm / worker-embed   rabbitmq trigger: work tokens waiting on the lane queue (the backlog), plus a
+#                                           postgresql trigger on jobs running, so a busy worker is never scaled away
+#                                           mid-job. 0..N replicas; paused lanes/datasets drop their tokens, freeing pods.
+#   api                                     cpu (the classic HPA metric) + postgresql trigger on queries in flight.
+#   model-vlm (components/models)           prometheus trigger on vLLM running + waiting requests.
+#
+# Credentials come from docuflow-secrets through TriggerAuthentications (never inlined).
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata: {name: docuflow-pg}
+spec:
+  secretTargetRef:
+    - {parameter: connection, name: docuflow-secrets, key: DOCUFLOW_DSN}
+---
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata: {name: docuflow-rabbitmq}
+spec:
+  secretTargetRef:
+    - {parameter: host, name: docuflow-secrets, key: RABBITMQ_URL}
+---
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
-metadata: {name: worker-vlm, namespace: docuflow}
+metadata: {name: worker-vlm}
 spec:
   scaleTargetRef: {name: worker-vlm}
-  minReplicaCount: 0                 # scale to zero when nothing is queued: no GPU held while idle
-  maxReplicaCount: 6
+  minReplicaCount: 0
+  maxReplicaCount: 12              # enough concurrent requests to push the vLLM server past its scale threshold
   pollingInterval: 5
-  cooldownPeriod: 45
+  cooldownPeriod: 60
   advanced:
     horizontalPodAutoscalerConfig:
       behavior:
         scaleUp: {stabilizationWindowSeconds: 0, policies: [{type: Pods, value: 3, periodSeconds: 10}]}
         scaleDown: {stabilizationWindowSeconds: 30, policies: [{type: Pods, value: 1, periodSeconds: 20}]}
   triggers:
-    - type: postgresql
+    - type: rabbitmq
+      name: vlm-queue
+      authenticationRef: {name: docuflow-rabbitmq}
       metadata:
-        connectionFromEnv: DOCUFLOW_DSN
-        query: "SELECT count(*) FROM jobs WHERE lane='vlm' AND status IN ('queued','running')"
-        targetQueryValue: "2"            # about two page-reading jobs per worker
+        protocol: amqp
+        queueName: docuflow.vlm
+        mode: QueueLength
+        value: "2"            # about two page-reading jobs per worker
+        activationValue: "0"
+    - type: postgresql
+      name: vlm-running
+      authenticationRef: {name: docuflow-pg}
+      metadata:
+        query: "SELECT count(*) FROM jobs WHERE lane='vlm' AND status='running'"
+        targetQueryValue: "1"
         activationTargetQueryValue: "0"
 ---
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
-metadata: {name: worker-embed, namespace: docuflow}
+metadata: {name: worker-embed}
 spec:
   scaleTargetRef: {name: worker-embed}
-  minReplicaCount: 1
-  maxReplicaCount: 2
+  minReplicaCount: 0
+  maxReplicaCount: 3
   pollingInterval: 5
-  cooldownPeriod: 30
+  cooldownPeriod: 60
   triggers:
-    - type: postgresql
+    - type: rabbitmq
+      name: embed-queue
+      authenticationRef: {name: docuflow-rabbitmq}
       metadata:
-        connectionFromEnv: DOCUFLOW_DSN
-        query: "SELECT count(*) FROM jobs WHERE lane='embed' AND status IN ('queued','running')"
-        targetQueryValue: "8"
+        protocol: amqp
+        queueName: docuflow.embed
+        mode: QueueLength
+        value: "8"
+        activationValue: "0"
+    - type: postgresql
+      name: embed-running
+      authenticationRef: {name: docuflow-pg}
+      metadata:
+        query: "SELECT count(*) FROM jobs WHERE lane='embed' AND status='running'"
+        targetQueryValue: "1"
+        activationTargetQueryValue: "0"
 ---
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
-metadata: {name: worker-io, namespace: docuflow}
+metadata: {name: worker-io}
 spec:
   scaleTargetRef: {name: worker-io}
-  minReplicaCount: 1
-  maxReplicaCount: 2
+  minReplicaCount: 0
+  maxReplicaCount: 3
   pollingInterval: 5
-  cooldownPeriod: 30
+  cooldownPeriod: 60
   triggers:
-    - type: postgresql
+    - type: rabbitmq
+      name: io-queue
+      authenticationRef: {name: docuflow-rabbitmq}
       metadata:
-        connectionFromEnv: DOCUFLOW_DSN
-        query: "SELECT count(*) FROM jobs WHERE lane='io' AND status IN ('queued','running')"
-        targetQueryValue: "2"
+        protocol: amqp
+        queueName: docuflow.io
+        mode: QueueLength
+        value: "2"
+        activationValue: "0"
+    - type: postgresql
+      name: io-running
+      authenticationRef: {name: docuflow-pg}
+      metadata:
+        query: "SELECT count(*) FROM jobs WHERE lane='io' AND status='running'"
+        targetQueryValue: "1"
+        activationTargetQueryValue: "0"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata: {name: api}
+spec:
+  scaleTargetRef: {name: api}
+  minReplicaCount: 1
+  maxReplicaCount: 4
+  pollingInterval: 10
+  cooldownPeriod: 120
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp: {stabilizationWindowSeconds: 0, policies: [{type: Pods, value: 2, periodSeconds: 15}]}
+        scaleDown: {stabilizationWindowSeconds: 120, policies: [{type: Pods, value: 1, periodSeconds: 60}]}
+  triggers:
+    - type: cpu
+      metricType: Utilization
+      metadata: {value: "60"}
+    - type: postgresql
+      name: queries-in-flight
+      authenticationRef: {name: docuflow-pg}
+      metadata:
+        query: "SELECT count(*) FROM inflight WHERE beat > now() - interval '120 seconds'"
+        targetQueryValue: "4"            # agent loops mostly wait on the LLM; ~4 concurrent per pod

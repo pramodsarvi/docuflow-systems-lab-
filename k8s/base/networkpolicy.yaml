@@ -1,0 +1,38 @@
+# Ingress rules (enforced by CNIs that support NetworkPolicy: Calico, Cilium, Azure NPM, recent kindnet).
+# Postgres: only docuflow pods and KEDA's Postgres scaler.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: db-ingress}
+spec:
+  podSelector: {matchLabels: {app: db}}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: {matchLabels: {app.kubernetes.io/part-of: docuflow}}
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: keda}}
+      ports: [{port: 5432}]
+---
+# Workers serve nothing but /health and /metrics: kubelet probes (not subject to policy) and Prometheus.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: workers-ingress}
+spec:
+  podSelector: {matchLabels: {app.kubernetes.io/component: worker}}
+  policyTypes: [Ingress]
+  ingress:
+    - from: [{namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: monitoring}}}]
+      ports: [{port: 9100}]
+---
+# API: reachable from inside the namespace, the ingress controller and Prometheus.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: api-ingress}
+spec:
+  podSelector: {matchLabels: {app: api}}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: {}
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: ingress-nginx}}
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: monitoring}}
+      ports: [{port: 8791}]

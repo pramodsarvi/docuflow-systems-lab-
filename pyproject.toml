@@ -1,0 +1,17 @@
+[project]
+name = "docuflow"
+version = "0.2.0"
+description = "Parallel ingestion of printed + handwritten documents and agentic RAG, with KEDA-scaled workers on Kubernetes"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 140
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B"]
+# One-line `a; b` statements and compact names are a deliberate style in this codebase.
+ignore = ["E501", "E702", "E731", "E741", "B008", "B904"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

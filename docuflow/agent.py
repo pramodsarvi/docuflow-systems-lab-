@@ -19,7 +19,7 @@ Text was extracted by OCR and every line is tagged (printed) or (handwritten). T
 ingested, so some pages may not be indexed yet.
 
 On each turn reply with ONE JSON action:
-- search: {action, query, dataset?, kind?}  hybrid search. dataset is one of funsd, xfund, docvqa, iam; kind is printed or handwritten.
+- search: {action, query, dataset?, kind?}  hybrid search. dataset is one of {datasets}; kind is printed or handwritten.
 - get_page: {action, doc_id}  full extracted text of one page.
 - read_page_image: {action, doc_id, query}  have the vision model look at the page image and answer `query`. Use it when the
   extracted text is garbled, incomplete or ambiguous (especially handwriting).
@@ -30,7 +30,10 @@ Never decide that something is absent from the corpus status alone: always run a
 can be about anything, including songs, letters, prices or names).
 Always put your reasoning in "thought": say whether the evidence so far is sufficient. If a search returns nothing useful,
 rewrite the query (different keywords, drop filters) before giving up. Only answer from evidence; if the evidence is not
-there, say so (and mention if ingestion may still be running). Keep answers short and exact."""
+there, say so (and mention if ingestion may still be running). Answer in one short sentence that restates what was
+asked, e.g. "INV-1005 was signed by Maria Lopez." or "The amount on PO-1200 is 450 dollars."
+If the first search does not show the exact document or identifier asked about, search again with a different query
+(for example just the identifier) before concluding that it is missing."""
 
 
 def _fmt_hits(hits):
@@ -47,9 +50,9 @@ def run(question, dataset=None, max_steps=None, lang=None):
         c.execute("INSERT INTO inflight (id) VALUES (%s)", (qid,))
         ingesting = c.execute("SELECT count(*) n FROM jobs WHERE status IN ('queued','running')").fetchone()["n"] > 0
     hint = f"\nRestrict searches to dataset '{dataset}'." if dataset else ""
-    msgs = [{"role": "system", "content": SYSTEM + hint},
+    msgs = [{"role": "system", "content": SYSTEM.replace("{datasets}", ", ".join(config.DATASETS)) + hint},
             {"role": "user", "content": f"Corpus status: {stats}\n\nQuestion: {question}"}]
-    answer, cites = None, []
+    answer, cites, searches, retried = None, [], 0, False
     try:
         for step in range(max_steps):
             with db.pool().connection() as c:
@@ -72,6 +75,14 @@ def run(question, dataset=None, max_steps=None, lang=None):
                          {"role": "user", "content": "You have not searched yet. Run a search with keywords from the question first."}]
                 trace.append({**entry, "rejected": "answered before searching"})
                 continue
+            if act == "answer" and not retried and searches < 2 and not a.get("citations") and step < max_steps - 2:
+                # "Not found" after a single search is usually a retrieval miss, not a missing document: try once more.
+                retried = True
+                msgs += [{"role": "assistant", "content": raw},
+                         {"role": "user", "content": "Before concluding it is missing, search once more with a different query "
+                                                     "(e.g. only the document number or the key names from the question)."}]
+                trace.append({**entry, "rejected": "gave up after one search"})
+                continue
             if act == "answer" or last and act not in ACTIONS:
                 answer = a.get("answer") or "I could not find this in the indexed documents."
                 cites = [d for d in a.get("citations", []) if d in seen]
@@ -83,6 +94,7 @@ def run(question, dataset=None, max_steps=None, lang=None):
                 hits = retrieval.search(a.get("query") or question, k=5, dataset=ds if ds in config.DATASETS else None,
                                         kind=a.get("kind") if a.get("kind") in ("printed", "handwritten") else None, lang=lang)
                 seen.update(h["doc_id"] for h in hits)
+                searches += 1
                 obs = _fmt_hits(hits)
                 entry.update(query=a.get("query"), dataset=ds, kind=a.get("kind"), doc_ids=[h["doc_id"] for h in hits])
             elif act == "get_page":

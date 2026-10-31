@@ -1,3 +1,25 @@
+# Environment-neutral docuflow. Overlays add the model backend (simulator or real), GPUs, monitoring, ingress and secrets.
+# Expects a Secret `docuflow-secrets` with DOCUFLOW_DSN, POSTGRES_PASSWORD, RABBITMQ_URL, RABBITMQ_PASSWORD and
+# optionally DOCUFLOW_API_KEY, LLM_API_KEY, HF_TOKEN.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-resources: [namespace.yaml, config.yaml, db.yaml, sim-model.yaml, api.yaml, workers.yaml, keda.yaml]
+namespace: docuflow
+labels:
+  - pairs: {app.kubernetes.io/part-of: docuflow}
+    includeSelectors: false
+    includeTemplates: true
+resources:
+  - namespace.yaml
+  - priorityclasses.yaml
+  - serviceaccount.yaml
+  - config.yaml
+  - db.yaml
+  - rabbitmq.yaml
+  - api.yaml
+  - workers.yaml
+  - keda.yaml
+  - gc-cronjob.yaml
+  - networkpolicy.yaml
+images:
+  - name: docuflow
+    newTag: dev

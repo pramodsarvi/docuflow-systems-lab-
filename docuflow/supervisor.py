@@ -15,7 +15,9 @@ def main(host="127.0.0.1", port=8791):
     def spawn(key):
         if key == "api":
             return subprocess.Popen([py, "-m", "uvicorn", "docuflow.api:app", "--host", host, "--port", str(port), "--log-level", "warning"])
-        return subprocess.Popen([py, "-m", "docuflow", "worker", key.split(":")[0]])
+        # Local mode runs many workers on one host; only the first per lane would get a metrics port, so turn it off.
+        return subprocess.Popen([py, "-m", "docuflow", "worker", key.split(":")[0]],
+                                env={**os.environ, "WORKER_METRICS_PORT": os.environ.get("WORKER_METRICS_PORT", "0")})
 
     keys = ["api"] + [f"{lane}:{i}" for lane, n in config.LANE_PROCS.items() for i in range(n)]
     for k in keys:

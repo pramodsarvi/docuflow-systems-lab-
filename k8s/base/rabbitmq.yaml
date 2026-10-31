@@ -1,0 +1,60 @@
+# RabbitMQ: one durable work-token queue per lane (+ a delay queue for retry backoff). KEDA scales the workers on these
+# queue lengths. Tokens are recoverable from Postgres (workers reconcile), so a single broker node is enough here; for
+# HA run the RabbitMQ Cluster Operator with quorum queues, or point RABBITMQ_URL at a managed broker.
+apiVersion: v1
+kind: Service
+metadata: {name: rabbitmq, labels: {app: rabbitmq}}
+spec:
+  selector: {app: rabbitmq}
+  ports:
+    - {name: amqp, port: 5672, targetPort: amqp}
+    - {name: management, port: 15672, targetPort: management}
+    - {name: prometheus, port: 15692, targetPort: prometheus}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: {name: rabbitmq}
+spec:
+  serviceName: rabbitmq
+  replicas: 1
+  selector: {matchLabels: {app: rabbitmq}}
+  template:
+    metadata:
+      labels: {app: rabbitmq, app.kubernetes.io/component: broker}
+      annotations: {prometheus.io/scrape: "true", prometheus.io/port: "15692", prometheus.io/path: /metrics}
+    spec:
+      serviceAccountName: docuflow
+      priorityClassName: docuflow-interactive
+      terminationGracePeriodSeconds: 60
+      securityContext: {runAsNonRoot: true, runAsUser: 999, runAsGroup: 999, fsGroup: 999, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: rabbitmq
+          image: rabbitmq:3.13-management
+          env:
+            - {name: RABBITMQ_DEFAULT_USER, value: docuflow}
+            - {name: RABBITMQ_DEFAULT_PASS, valueFrom: {secretKeyRef: {name: docuflow-secrets, key: RABBITMQ_PASSWORD}}}
+            - {name: RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS, value: "-rabbit vm_memory_high_watermark 0.6"}
+          ports:
+            - {name: amqp, containerPort: 5672}
+            - {name: management, containerPort: 15672}
+            - {name: prometheus, containerPort: 15692}
+          readinessProbe: {exec: {command: ["rabbitmq-diagnostics", "-q", "check_port_connectivity"]}, periodSeconds: 10, timeoutSeconds: 10}
+          livenessProbe: {exec: {command: ["rabbitmq-diagnostics", "-q", "status"]}, initialDelaySeconds: 60, periodSeconds: 30, timeoutSeconds: 15}
+          resources: {requests: {cpu: 200m, memory: 512Mi}, limits: {memory: 1Gi}}
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+          volumeMounts: [{name: data, mountPath: /var/lib/rabbitmq}]
+  volumeClaimTemplates:
+    - metadata: {name: data}
+      spec: {accessModes: [ReadWriteOnce], resources: {requests: {storage: 2Gi}}}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: rabbitmq-ingress}
+spec:
+  podSelector: {matchLabels: {app: rabbitmq}}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: {matchLabels: {app.kubernetes.io/part-of: docuflow}}
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: keda}}
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: monitoring}}

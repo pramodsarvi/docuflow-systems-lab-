@@ -1,37 +1,49 @@
 apiVersion: v1
 kind: Service
-metadata: {name: api, namespace: docuflow}
-spec: {selector: {app: api}, ports: [{port: 8791}]}
+metadata: {name: api, labels: {app: api}}
+spec:
+  selector: {app: api}
+  ports: [{name: http, port: 8791, targetPort: http}]
 ---
 apiVersion: apps/v1
 kind: Deployment
-metadata: {name: api, namespace: docuflow}
+metadata: {name: api, labels: {app: api}}
 spec:
-  replicas: 1
+  replicas: 1            # KEDA owns the replica count (keda.yaml)
+  revisionHistoryLimit: 5
+  strategy: {type: RollingUpdate, rollingUpdate: {maxUnavailable: 0, maxSurge: 1}}
   selector: {matchLabels: {app: api}}
   template:
-    metadata: {labels: {app: api}}
+    metadata:
+      labels: {app: api, app.kubernetes.io/component: api}
+      annotations: {prometheus.io/scrape: "true", prometheus.io/port: "8791", prometheus.io/path: /metrics}
     spec:
-      priorityClassName: tenant-standard      # interactive queries outrank ingest workers (tenant-batch)
+      serviceAccountName: docuflow
+      priorityClassName: docuflow-interactive        # queries outrank ingest
+      terminationGracePeriodSeconds: 60
+      securityContext: {runAsNonRoot: true, runAsUser: 10001, runAsGroup: 10001, seccompProfile: {type: RuntimeDefault}}
+      topologySpreadConstraints:
+        - {maxSkew: 1, topologyKey: kubernetes.io/hostname, whenUnsatisfiable: ScheduleAnyway, labelSelector: {matchLabels: {app: api}}}
       containers:
         - name: api
-          image: docuflow:dev
+          image: docuflow
           imagePullPolicy: IfNotPresent
-          command: ["uvicorn", "docuflow.api:app", "--host", "0.0.0.0", "--port", "8791", "--log-level", "warning"]
-          envFrom: [{configMapRef: {name: docuflow-config}}]
-          env:
-            - name: DOCUFLOW_API_KEY
-              valueFrom: {secretKeyRef: {name: docuflow-api-key, key: key, optional: true}}   # unset = open API
-          ports: [{containerPort: 8791}]
-          readinessProbe: {httpGet: {path: /health, port: 8791}, periodSeconds: 3}
-          resources: {requests: {cpu: 100m, memory: 160Mi}, limits: {memory: 512Mi}}
+          command: ["uvicorn", "docuflow.api:app", "--host", "0.0.0.0", "--port", "8791", "--log-level", "warning",
+                    "--timeout-graceful-shutdown", "50"]
+          envFrom:
+            - configMapRef: {name: docuflow-config}
+            - secretRef: {name: docuflow-secrets}
+          ports: [{name: http, containerPort: 8791}]
+          startupProbe: {httpGet: {path: /ready, port: http}, periodSeconds: 3, failureThreshold: 40}
+          readinessProbe: {httpGet: {path: /ready, port: http}, periodSeconds: 5}
+          livenessProbe: {httpGet: {path: /health, port: http}, periodSeconds: 10, failureThreshold: 6}
+          lifecycle: {preStop: {exec: {command: ["sleep", "5"]}}}   # let endpoints drop the pod before it stops accepting
+          resources: {requests: {cpu: 200m, memory: 256Mi}, limits: {memory: 1Gi}}
+          securityContext: {readOnlyRootFilesystem: true, allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+          volumeMounts: [{name: tmp, mountPath: /tmp}]
+      volumes: [{name: tmp, emptyDir: {sizeLimit: 1Gi}}]
 ---
-# Plain HPA on CPU, same style as the batch tenant in the llm-d project.
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata: {name: api, namespace: docuflow}
-spec:
-  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: api}
-  minReplicas: 1
-  maxReplicas: 3
-  metrics: [{type: Resource, resource: {name: cpu, target: {type: Utilization, averageUtilization: 60}}}]
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: api}
+spec: {maxUnavailable: 1, selector: {matchLabels: {app: api}}}   # with KEDA min 2 (prod) one pod always serves

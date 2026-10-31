@@ -120,3 +120,13 @@ def test_ingest_backs_off_under_query_pressure(monkeypatch):
     with db.pool().connection() as c:
         c.execute("DELETE FROM inflight")
     assert jobs.claim("vlm", "w2")                                         # pressure gone: back to the lane limit
+
+
+def test_truncated_vlm_output_keeps_completed_regions():
+    from docuflow import extract
+    cut = ('{\n  "regions": [\n    {"text": "W. K. KELLOGG FOUNDATION", "kind": "printed", "role": "header"},\n'
+           '    {"text": "Grant \\"A\\" total", "kind": "printed"},\n    {"text": "Sue Wa')
+    regions = extract.salvage_regions(cut)
+    assert regions == [{"text": "W. K. KELLOGG FOUNDATION", "kind": "printed", "role": "header"},
+                       {"text": 'Grant "A" total', "kind": "printed", "role": "body"}]
+    assert extract.salvage_regions("not json at all") == []

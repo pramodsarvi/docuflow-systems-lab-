@@ -29,6 +29,7 @@ PER_DATASET_CAP = int(os.environ.get("PER_DATASET_CAP", 1))     # max running jo
 YIELD_TO_QUERIES = os.environ.get("YIELD_TO_QUERIES", "1") == "1"
 LEASE_SECONDS = int(os.environ.get("LEASE_SECONDS", 900))
 MAX_ATTEMPTS = int(os.environ.get("MAX_ATTEMPTS", 3))
+VLM_MAX_TOKENS = int(os.environ.get("VLM_MAX_TOKENS", 6000))   # page transcription output; dense pages need ~4-6k
 MAX_IMAGE_SIDE = int(os.environ.get("MAX_IMAGE_SIDE", 1280))
 AGENT_MAX_STEPS = int(os.environ.get("AGENT_MAX_STEPS", 6))
 AGENT_MAX_TOKENS = int(os.environ.get("AGENT_MAX_TOKENS", 350))           # per agent step (one JSON action)

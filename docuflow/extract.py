@@ -1,4 +1,6 @@
 """Page reading with a vision model: transcribe every region and label it printed vs handwritten."""
+import json
+import re
 import time
 
 from . import config, llm
@@ -17,16 +19,37 @@ SCHEMA = {"type": "object", "required": ["regions"], "properties": {"regions": {
         "role": {"type": "string"}}}}}}
 
 
+_REGION = re.compile(r'\{\s*"text"\s*:\s*"((?:[^"\\]|\\.)*)"\s*,\s*"kind"\s*:\s*"(printed|handwritten)"'
+                     r'(?:\s*,\s*"role"\s*:\s*"((?:[^"\\]|\\.)*)")?\s*\}')
+
+
+def salvage_regions(text):
+    """Complete region objects from a truncated or slightly malformed regions list."""
+    out = []
+    for m in _REGION.finditer(text):
+        try:
+            t = json.loads(f'"{m.group(1)}"')
+            role = json.loads(f'"{m.group(3)}"') if m.group(3) is not None else "body"
+        except json.JSONDecodeError:
+            continue
+        out.append({"text": t, "kind": m.group(2), "role": role})
+    return out
+
+
 def read_page(image_bytes, hint_lang=None):
     """Returns (regions, seconds). Raises ValueError if the model returns nothing usable."""
     t0 = time.perf_counter()
     prompt = PROMPT + (f"\nThe page language is probably '{hint_lang}'." if hint_lang and hint_lang != "en" else "")
     text, _ = llm.chat([{"role": "user", "content": prompt}], model=config.VLM_MODEL, role="vlm", images=[image_bytes],
-                       fmt=SCHEMA, max_tokens=3000, num_ctx=12288)
+                       fmt=SCHEMA, max_tokens=config.VLM_MAX_TOKENS, num_ctx=12288)
     try:
         regions = llm.parse_json(text).get("regions", [])
     except Exception as e:
-        raise ValueError(f"unparseable VLM output: {e}: {text[:200]}")
+        # Dense pages (financial tables, ingredient lists) can run past the output limit and cut the JSON mid-region.
+        # Keep every region that was completed instead of losing the page.
+        regions = salvage_regions(text)
+        if not regions:
+            raise ValueError(f"unparseable VLM output: {e}: {text[:200]}")
     regions = [{"text": r["text"].strip(), "kind": r.get("kind", "printed"), "role": r.get("role", "body")}
                for r in regions if isinstance(r, dict) and str(r.get("text", "")).strip()]
     if not regions:

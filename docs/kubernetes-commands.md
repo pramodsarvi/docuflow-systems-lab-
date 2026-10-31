@@ -506,7 +506,88 @@ expires.
 
 ---
 
-## 13. `make` targets and the commands behind them
+## 13. More commands used along the way
+
+### Is the cluster already there?
+```bash
+kind get clusters
+```
+Lists kind clusters on this machine. `cluster-up.sh` uses it to skip creation when `docuflow` already exists, so the
+script can be re-run safely.
+
+### Wait for nodes to become Ready
+```bash
+kubectl wait --for=condition=Ready nodes --all --timeout=120s
+```
+Blocks until every node reports `Ready`, or fails at the timeout. Used after restarting containerd on the GPU node:
+the node flips to `NotReady` for a few seconds, and installing the device plugin before it recovers would race.
+`kubectl wait` works on any condition: `--for=condition=Available deploy/api`, or `--for=delete pod/<pod>`.
+
+### Create a namespace idempotently
+```bash
+kubectl create namespace docuflow --dry-run=client -o yaml | kubectl apply -f -
+```
+`create namespace` fails if it exists. Rendering with `--dry-run=client` and piping to `apply` makes it safe to
+repeat. It's the same pattern as Secrets in section 7, used before creating production secrets.
+
+### Delete a pod so its controller replaces it
+```bash
+kubectl -n docuflow delete pod -l app=model-embed --wait=false
+```
+The Deployment's ReplicaSet notices the missing pod and creates a fresh one. It's useful to retry a pod stuck in
+`CrashLoopBackOff` once the cause is fixed: here, after freeing GPU memory for the embedding server. `--wait=false`
+returns immediately instead of waiting for termination.
+
+### Volumes
+```bash
+kubectl -n docuflow get pvc
+kubectl get pv
+```
+- **PersistentVolumeClaims:** what pods ask for (`model-cache`, `data-db-0`, `data-rabbitmq-0`).
+- **PersistentVolumes:** what satisfies them. Cluster-scoped, so no `-n`.
+
+`STATUS Bound` means the claim has storage. A pod waiting on an unbound claim stays `Pending` with
+`pod has unbound immediate PersistentVolumeClaims`, which is what the vLLM pods showed for their first few seconds.
+The model cache is a pre-created hostPath PV with `Retain`, so ~20 GB of weights survive `kind delete cluster`.
+
+### Which pods a Service sends traffic to
+```bash
+kubectl -n docuflow get endpointslices -l kubernetes.io/service-name=model-vlm -o wide
+kubectl -n docuflow get svc
+```
+EndpointSlices list the ready pod IPs behind a Service. If a Service has no endpoints, its selector matches no ready
+pod: check labels and readiness probes. For the vLLM servers, each replica appears only after `/health` passes,
+which is why a loading model receives no traffic.
+
+### StatefulSets: database and broker
+```bash
+kubectl -n docuflow rollout status sts/db sts/rabbitmq --timeout=300s
+kubectl -n docuflow get sts
+```
+Postgres and RabbitMQ run as StatefulSets: stable names (`db-0`, `rabbitmq-0`), one volume per replica, ordered
+start. `rollout status` works for them like it does for Deployments. `make deploy` waits on both before checking the
+API, because the API's readiness depends on the database.
+
+### Images inside a node
+```bash
+docker exec docuflow-worker crictl images | grep -E "docuflow|vllm"
+docker exec docuflow-worker crictl pull docker.io/vllm/vllm-openai:v0.13.0
+```
+`crictl` talks to the node's containerd directly: list what's cached, or pre-pull a large image. Pre-pulling the
+~8 GB vLLM image avoided a long `ContainerCreating` phase on first deploy, after `kind load` failed for that image.
+
+### Platform status
+```bash
+kubectl -n ingress-nginx rollout status deploy/ingress-nginx-controller --timeout=180s
+kubectl -n nvidia get pods
+kubectl -n keda get pods
+```
+Health of the add-ons the app depends on. If KEDA's pods aren't running, no ScaledObject scales. If the device
+plugin isn't running, no GPU pod schedules.
+
+---
+
+## 14. `make` targets and the commands behind them
 
 | target | runs |
 |---|---|
@@ -517,3 +598,38 @@ expires.
 | `make ingest-mode` / `query-mode` | `scripts/mode.sh`: API pause/resume, `scale`, `patch scaledobject`, `patch configmap`, vLLM arg patches |
 | `make smoke`, `make stress`, `make quality-eval`, `make ragas` | HTTP checks, load generator and evals (they use `port-forward` where needed) |
 | `make cluster-down` | `kind delete cluster` |
+
+---
+
+## Index
+
+| command | section |
+|---|---|
+| `crictl images` / `crictl pull` (via `docker exec`) | 13 |
+| `docker exec <node> ...` | 2 |
+| `helm repo add` / `helm repo update` | 3 |
+| `helm upgrade --install` / `--reuse-values` / `helm ls` | 3 |
+| `kind create cluster` / `kind delete cluster` / `kind get clusters` | 1, 13 |
+| `kind load docker-image` | 1 |
+| `kubeconform` | 4 |
+| `kubectl annotate` (force reconcile; last-applied fix) | 6, 9 |
+| `kubectl apply -k` / `-f` / `-f -` | 4 |
+| `kubectl auth can-i --as` | 12 |
+| `kubectl config use-context` / `current-context` | 1 |
+| `kubectl create namespace` / `create secret` (`--dry-run=client` pattern) | 7, 13 |
+| `kubectl create token` | 12 |
+| `kubectl delete -k` / `delete pod` | 4, 13 |
+| `kubectl describe pod` / `describe hpa` | 5, 6 |
+| `kubectl exec` (psql, rabbitmqctl, vLLM metrics, config check) | 11 |
+| `kubectl get` (pods, deploy, sts, scaledobject, hpa, nodes, pvc, pv, svc, endpointslices, events, ingress) | 5, 6, 10, 13 |
+| `kubectl get -o jsonpath` / `-o custom-columns` | 2, 5, 6, 7 |
+| `kubectl label` / `kubectl taint` | 2 |
+| `kubectl logs` (`--tail`, `--previous`, `-l`, `--prefix`, `--since`) | 5 |
+| `kubectl patch` (merge: scaledobject, configmap, secret; json: container args) | 6, 7 |
+| `kubectl port-forward` | 10 |
+| `kubectl rollout restart` / `status` / `history` / `undo` | 8, 13 |
+| `kubectl run --rm -i --restart=Never` | 10 |
+| `kubectl scale` | 6 |
+| `kubectl top nodes` / `top pods` | 5 |
+| `kubectl wait --for=condition=...` | 13 |
+| `kustomize build` / `kubectl kustomize` | 4 |

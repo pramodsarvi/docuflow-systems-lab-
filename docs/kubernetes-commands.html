@@ -94,7 +94,7 @@ command does, why this project uses it, what to look for in the output, and any 
 for the local cluster (kind, context kind-docuflow, namespace docuflow); the same commands work on any
 cluster with the right context.</p>
 <div class="meta"><span>kind</span><span>kubectl</span><span>helm</span><span>kustomize</span><span>KEDA + HPA</span></div></header>
-<div class="wrap"><nav class="toc" aria-label="Sections"><div class="inner"><p>Contents</p><ol><li><a href="#1-cluster-lifecycle-kind"><span class="n">1</span>Cluster lifecycle (kind)</a></li><li><a href="#2-preparing-the-gpu-node"><span class="n">2</span>Preparing the GPU node</a></li><li><a href="#3-installing-platform-add-ons-helm"><span class="n">3</span>Installing platform add-ons (Helm)</a></li><li><a href="#4-deploying-docuflow-kustomize"><span class="n">4</span>Deploying docuflow (Kustomize)</a></li><li><a href="#5-seeing-whats-running"><span class="n">5</span>Seeing what's running</a></li><li><a href="#6-autoscaling-with-keda-and-hpa"><span class="n">6</span>Autoscaling with KEDA and HPA</a></li><li><a href="#7-configuration-and-secrets"><span class="n">7</span>Configuration and secrets</a></li><li><a href="#8-rollouts"><span class="n">8</span>Rollouts</a></li><li><a href="#9-fixing-kubectl-apply-fighting-keda"><span class="n">9</span>Fixing <code>kubectl apply</code> fighting KEDA</a></li><li><a href="#10-reaching-services-from-your-machine"><span class="n">10</span>Reaching services from your machine</a></li><li><a href="#11-inspecting-state-through-running-pods"><span class="n">11</span>Inspecting state through running pods</a></li><li><a href="#12-access-control"><span class="n">12</span>Access control</a></li><li><a href="#13-make-targets-and-the-commands-behind-them"><span class="n">13</span><code>make</code> targets and the commands behind them</a></li></ol></div></nav>
+<div class="wrap"><nav class="toc" aria-label="Sections"><div class="inner"><p>Contents</p><ol><li><a href="#1-cluster-lifecycle-kind"><span class="n">1</span>Cluster lifecycle (kind)</a></li><li><a href="#2-preparing-the-gpu-node"><span class="n">2</span>Preparing the GPU node</a></li><li><a href="#3-installing-platform-add-ons-helm"><span class="n">3</span>Installing platform add-ons (Helm)</a></li><li><a href="#4-deploying-docuflow-kustomize"><span class="n">4</span>Deploying docuflow (Kustomize)</a></li><li><a href="#5-seeing-whats-running"><span class="n">5</span>Seeing what's running</a></li><li><a href="#6-autoscaling-with-keda-and-hpa"><span class="n">6</span>Autoscaling with KEDA and HPA</a></li><li><a href="#7-configuration-and-secrets"><span class="n">7</span>Configuration and secrets</a></li><li><a href="#8-rollouts"><span class="n">8</span>Rollouts</a></li><li><a href="#9-fixing-kubectl-apply-fighting-keda"><span class="n">9</span>Fixing <code>kubectl apply</code> fighting KEDA</a></li><li><a href="#10-reaching-services-from-your-machine"><span class="n">10</span>Reaching services from your machine</a></li><li><a href="#11-inspecting-state-through-running-pods"><span class="n">11</span>Inspecting state through running pods</a></li><li><a href="#12-access-control"><span class="n">12</span>Access control</a></li><li><a href="#13-more-commands-used-along-the-way"><span class="n">13</span>More commands used along the way</a></li><li><a href="#14-make-targets-and-the-commands-behind-them"><span class="n">14</span><code>make</code> targets and the commands behind them</a></li><li><a href="#index"><span class="n">Index</span>Index</a></li></ol></div></nav>
 <main><section><p>Conventions: <code>NS=docuflow</code>. <code>&lt;pod&gt;</code> means a pod name from <code>kubectl get pods</code>. Most <code>make</code> targets wrap these commands
 (see the last section).</p>
 <hr />
@@ -472,7 +472,69 @@ must answer <code>yes</code> to list and <code>no</code> to delete, patch and ge
 <p>Creates a time-bound token for a ServiceAccount (7 days here). Nothing is stored in a Secret; the token simply
 expires.</p>
 <hr />
-</section><section id="13-make-targets-and-the-commands-behind-them"><h2 class="parttitle" id="h-13-make-targets-and-the-commands-behind-them">13. <code>make</code> targets and the commands behind them</h2>
+</section><section id="13-more-commands-used-along-the-way"><h2 class="parttitle" id="h-13-more-commands-used-along-the-way">13. More commands used along the way</h2>
+<h3 id="is-the-cluster-already-there">Is the cluster already there?</h3>
+<div class="scroll code"><pre><code class="language-bash">kind get clusters
+</code></pre></div>
+<p>Lists kind clusters on this machine. <code>cluster-up.sh</code> uses it to skip creation when <code>docuflow</code> already exists, so the
+script can be re-run safely.</p>
+<h3 id="wait-for-nodes-to-become-ready">Wait for nodes to become Ready</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl wait --for=condition=Ready nodes --all --timeout=120s
+</code></pre></div>
+<p>Blocks until every node reports <code>Ready</code>, or fails at the timeout. Used after restarting containerd on the GPU node:
+the node flips to <code>NotReady</code> for a few seconds, and installing the device plugin before it recovers would race.
+<code>kubectl wait</code> works on any condition: <code>--for=condition=Available deploy/api</code>, or <code>--for=delete pod/&lt;pod&gt;</code>.</p>
+<h3 id="create-a-namespace-idempotently">Create a namespace idempotently</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl create namespace docuflow --dry-run=client -o yaml | kubectl apply -f -
+</code></pre></div>
+<p><code>create namespace</code> fails if it exists. Rendering with <code>--dry-run=client</code> and piping to <code>apply</code> makes it safe to
+repeat. It's the same pattern as Secrets in section 7, used before creating production secrets.</p>
+<h3 id="delete-a-pod-so-its-controller-replaces-it">Delete a pod so its controller replaces it</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n docuflow delete pod -l app=model-embed --wait=false
+</code></pre></div>
+<p>The Deployment's ReplicaSet notices the missing pod and creates a fresh one. It's useful to retry a pod stuck in
+<code>CrashLoopBackOff</code> once the cause is fixed: here, after freeing GPU memory for the embedding server. <code>--wait=false</code>
+returns immediately instead of waiting for termination.</p>
+<h3 id="volumes">Volumes</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n docuflow get pvc
+kubectl get pv
+</code></pre></div>
+<ul>
+<li><strong>PersistentVolumeClaims:</strong> what pods ask for (<code>model-cache</code>, <code>data-db-0</code>, <code>data-rabbitmq-0</code>).</li>
+<li><strong>PersistentVolumes:</strong> what satisfies them. Cluster-scoped, so no <code>-n</code>.</li>
+</ul>
+<p><code>STATUS Bound</code> means the claim has storage. A pod waiting on an unbound claim stays <code>Pending</code> with
+<code>pod has unbound immediate PersistentVolumeClaims</code>, which is what the vLLM pods showed for their first few seconds.
+The model cache is a pre-created hostPath PV with <code>Retain</code>, so ~20 GB of weights survive <code>kind delete cluster</code>.</p>
+<h3 id="which-pods-a-service-sends-traffic-to">Which pods a Service sends traffic to</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n docuflow get endpointslices -l kubernetes.io/service-name=model-vlm -o wide
+kubectl -n docuflow get svc
+</code></pre></div>
+<p>EndpointSlices list the ready pod IPs behind a Service. If a Service has no endpoints, its selector matches no ready
+pod: check labels and readiness probes. For the vLLM servers, each replica appears only after <code>/health</code> passes,
+which is why a loading model receives no traffic.</p>
+<h3 id="statefulsets-database-and-broker">StatefulSets: database and broker</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n docuflow rollout status sts/db sts/rabbitmq --timeout=300s
+kubectl -n docuflow get sts
+</code></pre></div>
+<p>Postgres and RabbitMQ run as StatefulSets: stable names (<code>db-0</code>, <code>rabbitmq-0</code>), one volume per replica, ordered
+start. <code>rollout status</code> works for them like it does for Deployments. <code>make deploy</code> waits on both before checking the
+API, because the API's readiness depends on the database.</p>
+<h3 id="images-inside-a-node">Images inside a node</h3>
+<div class="scroll code"><pre><code class="language-bash">docker exec docuflow-worker crictl images | grep -E &quot;docuflow|vllm&quot;
+docker exec docuflow-worker crictl pull docker.io/vllm/vllm-openai:v0.13.0
+</code></pre></div>
+<p><code>crictl</code> talks to the node's containerd directly: list what's cached, or pre-pull a large image. Pre-pulling the
+~8 GB vLLM image avoided a long <code>ContainerCreating</code> phase on first deploy, after <code>kind load</code> failed for that image.</p>
+<h3 id="platform-status">Platform status</h3>
+<div class="scroll code"><pre><code class="language-bash">kubectl -n ingress-nginx rollout status deploy/ingress-nginx-controller --timeout=180s
+kubectl -n nvidia get pods
+kubectl -n keda get pods
+</code></pre></div>
+<p>Health of the add-ons the app depends on. If KEDA's pods aren't running, no ScaledObject scales. If the device
+plugin isn't running, no GPU pod schedules.</p>
+<hr />
+</section><section id="14-make-targets-and-the-commands-behind-them"><h2 class="parttitle" id="h-14-make-targets-and-the-commands-behind-them">14. <code>make</code> targets and the commands behind them</h2>
 <div class="scroll"><table>
 <thead>
 <tr>
@@ -508,6 +570,130 @@ expires.</p>
 <tr>
 <td><code>make cluster-down</code></td>
 <td><code>kind delete cluster</code></td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+</section><section id="index"><h2 class="parttitle" id="h-index">Index</h2>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>command</th>
+<th>section</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>crictl images</code> / <code>crictl pull</code> (via <code>docker exec</code>)</td>
+<td>13</td>
+</tr>
+<tr>
+<td><code>docker exec &lt;node&gt; ...</code></td>
+<td>2</td>
+</tr>
+<tr>
+<td><code>helm repo add</code> / <code>helm repo update</code></td>
+<td>3</td>
+</tr>
+<tr>
+<td><code>helm upgrade --install</code> / <code>--reuse-values</code> / <code>helm ls</code></td>
+<td>3</td>
+</tr>
+<tr>
+<td><code>kind create cluster</code> / <code>kind delete cluster</code> / <code>kind get clusters</code></td>
+<td>1, 13</td>
+</tr>
+<tr>
+<td><code>kind load docker-image</code></td>
+<td>1</td>
+</tr>
+<tr>
+<td><code>kubeconform</code></td>
+<td>4</td>
+</tr>
+<tr>
+<td><code>kubectl annotate</code> (force reconcile; last-applied fix)</td>
+<td>6, 9</td>
+</tr>
+<tr>
+<td><code>kubectl apply -k</code> / <code>-f</code> / <code>-f -</code></td>
+<td>4</td>
+</tr>
+<tr>
+<td><code>kubectl auth can-i --as</code></td>
+<td>12</td>
+</tr>
+<tr>
+<td><code>kubectl config use-context</code> / <code>current-context</code></td>
+<td>1</td>
+</tr>
+<tr>
+<td><code>kubectl create namespace</code> / <code>create secret</code> (<code>--dry-run=client</code> pattern)</td>
+<td>7, 13</td>
+</tr>
+<tr>
+<td><code>kubectl create token</code></td>
+<td>12</td>
+</tr>
+<tr>
+<td><code>kubectl delete -k</code> / <code>delete pod</code></td>
+<td>4, 13</td>
+</tr>
+<tr>
+<td><code>kubectl describe pod</code> / <code>describe hpa</code></td>
+<td>5, 6</td>
+</tr>
+<tr>
+<td><code>kubectl exec</code> (psql, rabbitmqctl, vLLM metrics, config check)</td>
+<td>11</td>
+</tr>
+<tr>
+<td><code>kubectl get</code> (pods, deploy, sts, scaledobject, hpa, nodes, pvc, pv, svc, endpointslices, events, ingress)</td>
+<td>5, 6, 10, 13</td>
+</tr>
+<tr>
+<td><code>kubectl get -o jsonpath</code> / <code>-o custom-columns</code></td>
+<td>2, 5, 6, 7</td>
+</tr>
+<tr>
+<td><code>kubectl label</code> / <code>kubectl taint</code></td>
+<td>2</td>
+</tr>
+<tr>
+<td><code>kubectl logs</code> (<code>--tail</code>, <code>--previous</code>, <code>-l</code>, <code>--prefix</code>, <code>--since</code>)</td>
+<td>5</td>
+</tr>
+<tr>
+<td><code>kubectl patch</code> (merge: scaledobject, configmap, secret; json: container args)</td>
+<td>6, 7</td>
+</tr>
+<tr>
+<td><code>kubectl port-forward</code></td>
+<td>10</td>
+</tr>
+<tr>
+<td><code>kubectl rollout restart</code> / <code>status</code> / <code>history</code> / <code>undo</code></td>
+<td>8, 13</td>
+</tr>
+<tr>
+<td><code>kubectl run --rm -i --restart=Never</code></td>
+<td>10</td>
+</tr>
+<tr>
+<td><code>kubectl scale</code></td>
+<td>6</td>
+</tr>
+<tr>
+<td><code>kubectl top nodes</code> / <code>top pods</code></td>
+<td>5</td>
+</tr>
+<tr>
+<td><code>kubectl wait --for=condition=...</code></td>
+<td>13</td>
+</tr>
+<tr>
+<td><code>kustomize build</code> / <code>kubectl kustomize</code></td>
+<td>4</td>
 </tr>
 </tbody>
 </table></div></section></main></div></body></html>

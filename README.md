@@ -106,6 +106,12 @@ real retrieval. The latest report is in [`evals/ragas-report.md`](evals/ragas-re
 compare runs made with the same judge rather than reading the absolute values. `evals/run_eval.py` still covers
 extraction CER/F1 against the Hub datasets' ground truth and DocVQA exact-match QA.
 
+## System design
+
+[`docs/design.md`](docs/design.md) is the reference: requirements and service levels, the architecture as built and
+the target architecture, data flows, a capacity model from measurements, and 14 decision records (accepted and
+proposed), each citing the evidence behind it, plus the roadmap.
+
 ## Challenges and lessons
 
 Building and stress-testing this system surfaced 14 failures. Most sat around the autoscaler, not in it:

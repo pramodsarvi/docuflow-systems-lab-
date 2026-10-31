@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>docuflow System Design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* Layout: one reading column (~68ch) with a sticky part index on wide screens; tables/code scroll in place. */
+  --paper: #f6f7f9;
+  --ink: #15181e;
+  --muted: #5b6372;
+  --rule: #dde1e8;
+  --panel: #ffffff;
+  --accent: #1f4fd1;
+  --accent-2: #e2892b;
+  --code-bg: #eef1f6;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #101318; --ink: #e7eaf0; --muted: #9aa3b2; --rule: #262c36; --panel: #161a21;
+    --accent: #8fb0ff; --accent-2: #f0a75a; --code-bg: #1a1f28; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #101318; --ink: #e7eaf0; --muted: #9aa3b2; --rule: #262c36; --panel: #161a21;
+  --accent: #8fb0ff; --accent-2: #f0a75a; --code-bg: #1a1f28; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--paper); color: var(--ink); font: 400 18px/1.62 var(--font-body); -webkit-font-smoothing: antialiased; }
+.wrap { display: grid; grid-template-columns: minmax(0, 1fr); gap: 48px; max-width: 1120px; margin: 0 auto; padding: 0 20px 96px; }
+@media (min-width: 1000px) { .wrap { grid-template-columns: 240px minmax(0, 1fr); } }
+header.hero { max-width: 1120px; margin: 0 auto; padding: 56px 20px 28px; border-bottom: 1px solid var(--rule); }
+.kicker { font: 600 13px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin: 0 0 18px; }
+h1 { font: 700 clamp(34px, 5.4vw, 60px)/1.04 var(--font-display); letter-spacing: -.02em; margin: 0 0 18px; max-width: 18ch; text-wrap: balance; }
+.lede { font-size: 21px; color: var(--muted); max-width: 60ch; margin: 0; font-style: italic; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+.meta span { font: 400 13px/1 var(--font-mono); border: 1px solid var(--rule); background: var(--panel); padding: 7px 10px; border-radius: 4px; color: var(--muted); }
+nav.toc { position: relative; }
+@media (min-width: 1000px) { nav.toc .inner { position: sticky; top: 24px; } }
+nav.toc .inner { padding-top: 36px; }
+nav.toc p { font: 600 12px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+nav.toc a { display: flex; gap: 10px; padding: 7px 8px; border-radius: 4px; color: var(--ink); text-decoration: none; font: 500 15px/1.3 var(--font-display); }
+nav.toc a:hover, nav.toc a:focus-visible { background: var(--panel); outline: none; box-shadow: inset 2px 0 0 var(--accent); }
+nav.toc .n { font: 600 13px/1.5 var(--font-mono); color: var(--accent); min-width: 1.2em; }
+main { min-width: 0; }
+main > section { max-width: 68ch; padding-top: 36px; }
+.partno { font: 600 13px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin: 28px 0 10px; }
+.parttitle { font: 700 clamp(28px, 3.6vw, 38px)/1.12 var(--font-display); letter-spacing: -.015em; margin: 0 0 18px; text-wrap: balance; }
+section + section { border-top: 1px solid var(--rule); margin-top: 40px; }
+h3 { font: 700 23px/1.25 var(--font-display); margin: 38px 0 10px; text-wrap: balance; }
+p, ul, ol { margin: 0 0 16px; }
+li { margin: 4px 0; }
+strong { font-weight: 600; }
+a { color: var(--accent); text-underline-offset: 3px; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+code { font: 400 .84em/1.4 var(--font-mono); background: var(--code-bg); padding: .1em .35em; border-radius: 3px; }
+.scroll { overflow-x: auto; margin: 0 0 20px; max-width: 100%; }
+.code { background: var(--code-bg); border-radius: 6px; border-left: 3px solid var(--accent); }
+pre { margin: 0; padding: 14px 16px; font: 400 13.5px/1.55 var(--font-mono); }
+pre code { background: none; padding: 0; font-size: inherit; }
+table { border-collapse: collapse; font: 400 15px/1.45 var(--font-body); min-width: 100%; font-variant-numeric: tabular-nums; }
+th { text-align: left; font: 600 13px/1.3 var(--font-mono); text-transform: uppercase; letter-spacing: .04em; color: var(--muted); border-bottom: 2px solid var(--ink); padding: 8px 12px 8px 0; white-space: nowrap; }
+td { border-bottom: 1px solid var(--rule); padding: 8px 12px 8px 0; vertical-align: top; }
+td code { white-space: nowrap; }
+figure.chart { margin: 8px 0 26px; padding: 16px 16px 8px; background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; }
+figure.chart svg { width: 100%; height: auto; display: block; }
+figcaption { font: 400 15px/1.45 var(--font-body); color: var(--muted); margin-bottom: 10px; }
+figcaption b { color: var(--ink); font-weight: 600; }
+.key { font: 600 12px/1 var(--font-mono); padding: 3px 7px; border-radius: 3px; color: var(--paper); }
+.key.a { background: var(--accent); } .key.b { background: var(--accent-2); }
+svg .grid { stroke: var(--rule); stroke-width: 1; }
+svg .axis { fill: var(--muted); font: 400 12px var(--font-mono); }
+svg .label { fill: var(--ink); font: 500 13px var(--font-display); }
+svg .val { fill: var(--ink); font: 600 12px var(--font-mono); }
+svg .bar-a { fill: var(--accent); } svg .bar-b { fill: var(--accent-2); } svg .bar-c { fill: var(--muted); opacity: .55; }
+footer { max-width: 68ch; color: var(--muted); font-size: 15px; margin-top: 56px; border-top: 1px solid var(--rule); padding-top: 18px; }
+@media (max-width: 420px) { body { font-size: 17px; } .lede { font-size: 18px; } }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+html { scroll-behavior: smooth; }
+
+main > section { padding-top: 28px; } section + section { margin-top: 28px; }
+h4 { font: 700 19px/1.3 var(--font-display); margin: 30px 0 8px; }
+</style></head><body>
+<header class="hero"><p class="kicker">Design reference · docuflow</p>
+<h1>docuflow system design</h1>
+<p class="lede">Status: living document. Every decision below cites the measurement or failure that motivated it. Decisions marked
+accepted are implemented; proposed decisions are the target design and the roadmap (section 8). The
+experiment write-up that produced the evidence is in docs/blog/.</p>
+<div class="meta"><span>14 decision records</span><span>SLOs with measured values</span><span>capacity model</span><span>roadmap</span></div></header>
+<div class="wrap"><nav class="toc" aria-label="Sections"><div class="inner"><p>Contents</p><ol><li><a href="#1-purpose-and-scope"><span class="n">1</span>Purpose and scope</a></li><li><a href="#2-requirements"><span class="n">2</span>Requirements</a></li><li><a href="#3-architecture-as-built"><span class="n">3</span>Architecture as built</a></li><li><a href="#4-target-architecture"><span class="n">4</span>Target architecture</a></li><li><a href="#5-data-flows"><span class="n">5</span>Data flows</a></li><li><a href="#6-capacity-model"><span class="n">6</span>Capacity model</a></li><li><a href="#7-decision-records"><span class="n">7</span>Decision records</a></li><li><a href="#8-roadmap"><span class="n">8</span>Roadmap</a></li><li><a href="#9-open-questions"><span class="n">9</span>Open questions</a></li></ol></div></nav>
+<main><section></section><section id="1-purpose-and-scope"><h2 class="parttitle" id="h-1-purpose-and-scope">1. Purpose and scope</h2>
+<p>docuflow turns scanned documents (printed text and handwriting) into a searchable knowledge base and answers
+questions about them with an agent that cites its sources. Ingest and querying run at the same time: a page becomes
+searchable minutes after it arrives, and questions asked mid-ingest see everything indexed so far.</p>
+<p><strong>In scope:</strong>
+- batch ingest of document collections
+- interactive question answering with citations
+- autoscaling on Kubernetes with GPU model serving
+- operating it: observability, recovery, evaluation</p>
+<p><strong>Out of scope for now:</strong>
+- multi-tenancy
+- per-document access control
+- streaming answers
+- document formats beyond page images</p>
+</section><section id="2-requirements"><h2 class="parttitle" id="h-2-requirements">2. Requirements</h2>
+<h3 id="functional">Functional</h3>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>F1</td>
+<td>Ingest a collection by name and size; read every page with a vision model into text regions tagged printed/handwritten</td>
+</tr>
+<tr>
+<td>F2</td>
+<td>Index each page for hybrid search (vectors + full text) as soon as it is read</td>
+</tr>
+<tr>
+<td>F3</td>
+<td>Answer a question with citations to the pages used; optionally scoped to a dataset or a single document</td>
+</tr>
+<tr>
+<td>F4</td>
+<td>Expose progress, backlog and every job's state; allow pause/resume, retry, and re-read of degraded pages</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="service-levels-proposed-targets">Service levels (proposed targets)</h3>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Target</th>
+<th>Measured today (1x L40S)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S1</td>
+<td>Query p95 ≤ 5 s with no ingest running</td>
+<td>p95 4.3 s (light load) ✓</td>
+</tr>
+<tr>
+<td>S2</td>
+<td>Query p95 ≤ 15 s while ingest runs, up to 24 concurrent users</td>
+<td>p95 12.4 s at 24 clients ✓; 22 s at 48 ✗</td>
+</tr>
+<tr>
+<td>S3</td>
+<td>A fetched page is queryable within 15 min under normal load</td>
+<td>p50 10 min with a 2,100-page backlog ✓</td>
+</tr>
+<tr>
+<td>S4</td>
+<td>No page is lost; no page is silently degraded</td>
+<td>0 lost in 14,614; 285 degraded before ADR-05, 0 after ✓</td>
+</tr>
+<tr>
+<td>S5</td>
+<td>Retrieval hit@1 ≥ 95% on identifier questions; RAGAS faithfulness ≥ 0.95</td>
+<td>hit@1 99.0%; faithfulness 0.975 ✓</td>
+</tr>
+<tr>
+<td>S6</td>
+<td>Scale from zero to first page in ≤ 30 s after an ingest request</td>
+<td>10 s ✓</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="constraints">Constraints</h3>
+<ul>
+<li>GPUs are the expensive, scarce resource. The design has to make one GPU useful and scale cleanly to many.</li>
+<li>Everything runs in containers on Kubernetes, and model weights are open (no external model API required).</li>
+<li>Recovery has to be possible by an operator with <code>kubectl</code> and the HTTP API alone.</li>
+</ul>
+</section><section id="3-architecture-as-built"><h2 class="parttitle" id="h-3-architecture-as-built">3. Architecture as built</h2>
+<div class="scroll code"><pre><code>                     ingress (TLS in prod)
+                            │
+  clients ── POST /ingest, /query ──► api (KEDA: CPU + queries in flight)
+                            │                      │ agent loop (search, page, image re-read, answer)
+                            │ jobs + 1 token/job    ▼
+                            ▼                 model-llm ─┐
+   RabbitMQ  docuflow.{io,vlm,embed} (+ .delay)          │
+        │ KEDA rabbitmq scaler                            │  vLLM servers, one per model role,
+        ▼                                                 │  on GPU nodes (KEDA prometheus scaler
+   worker-io ─► worker-vlm ─► worker-embed ──────────────►│  on vLLM running + waiting)
+   (CPU pods, 0..N, one job each)        model-vlm, model-embed
+        │
+        ▼
+   Postgres + pgvector: documents, page images, chunks (HNSW + GIN), jobs, control, queries
+   Prometheus + Grafana + DCGM ─ dashboards and alerts on every tier
+</code></pre></div>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Responsibility</th>
+<th>Scales on</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>api</td>
+<td>ingest requests, agent loop, workload control, metrics</td>
+<td>KEDA: CPU 60%, 4 queries in flight per pod</td>
+</tr>
+<tr>
+<td>worker-io / vlm / embed</td>
+<td>one pipeline stage per lane, one job at a time</td>
+<td>KEDA: RabbitMQ lane depth + running jobs</td>
+</tr>
+<tr>
+<td>model-vlm / model-llm / model-embed</td>
+<td>vLLM inference per model role</td>
+<td>KEDA: vLLM running + waiting requests</td>
+</tr>
+<tr>
+<td>RabbitMQ</td>
+<td>work tokens (KEDA input, wake-ups), delayed retries</td>
+<td>n/a (single node)</td>
+</tr>
+<tr>
+<td>Postgres</td>
+<td>source of truth: jobs, documents, chunks, vectors, images</td>
+<td>n/a (single node)</td>
+</tr>
+</tbody>
+</table></div>
+</section><section id="4-target-architecture"><h2 class="parttitle" id="h-4-target-architecture">4. Target architecture</h2>
+<div class="scroll code"><pre><code>                         ingress (TLS + OIDC)
+                                │
+  clients ─────────────────► api (2..N) ───────────────┐
+                                │                       │
+                         jobs (Postgres)                │ requests with role + priority
+                                │                       ▼
+                     work queue (decision ADR-04)   inference gateway (ADR-06)
+                                │                   least-request / KV-aware routing,
+                                ▼                   priorities, limits, tracing (ADR-13)
+                     async workers (ADR-08)  ──────────►│
+                     few pods, bounded concurrency      ├─► query pool  (GPU A): model-llm, model-embed
+                     limit = model capacity             └─► ingest pool (GPU B): model-vlm  (ADR-07)
+                                │                               ▲ scaled on backlog + vLLM load
+                                ▼
+   object storage: page images (ADR-09)     Postgres HA: jobs, chunks, vectors (ADR-09)
+   OTel traces -&gt; Lens · Prometheus/Grafana · evals in CI (ADR-11)
+</code></pre></div>
+<p>What changes, and why:</p>
+<ol>
+<li><strong>An inference gateway sits between every client and every model server.</strong> It routes per request (least-request,
+   ideally KV-aware), carries priority, and is the single place for tracing, auth and limits.</li>
+<li><strong>GPU pools are split by role</strong>, so ingest bursts can't touch query latency. On a single GPU, ingest yields
+   automatically when the query latency SLO is at risk (ADR-07).</li>
+<li><strong>Workers become async, with bounded concurrency.</strong> Their total concurrency is derived from model capacity, and
+   the backlog scales the <em>model servers</em>.</li>
+<li><strong>Images move to object storage, and Postgres gets HA.</strong></li>
+</ol>
+</section><section id="5-data-flows"><h2 class="parttitle" id="h-5-data-flows">5. Data flows</h2>
+<p><strong>Ingest:</strong>
+1. <code>POST /ingest</code> → one <code>fetch</code> job per 20-page slice, committed, then one token per job.
+2. <strong>fetch:</strong> stream the slice, store each image, enqueue one <code>extract</code> per page (enqueued as pages arrive).
+3. <strong>extract:</strong> the vision model reads the page into regions (text, printed/handwritten, role). If output is cut off,
+   completed regions are kept (failure 11). Then chunk, write chunks, enqueue <code>embed</code>.
+4. <strong>embed:</strong> embed the chunks and mark the page <code>indexed</code>. It's searchable from this point.</p>
+<p>Downstream stages have higher priority, so pages finish before new ones start.</p>
+<p><strong>Query:</strong>
+1. <code>POST /query</code> registers the query in flight.
+2. Search on the question (hybrid: vector + full text with an identifier boost, RRF fusion).
+3. The agent loop decides: answer, search again, read a whole page, or have the vision model re-read the page image.
+4. Answer with citations restricted to pages actually seen; record the query, trace and latency.</p>
+<p><strong>Failure:</strong></p>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>failure</th>
+<th>handling</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>worker crash</td>
+<td>lease expiry requeues the job</td>
+</tr>
+<tr>
+<td>page problem (bad output)</td>
+<td>up to 3 attempts with backoff; the last may fall back to dataset text; then <code>dead</code></td>
+</tr>
+<tr>
+<td>model server unavailable</td>
+<td>deferred: attempt refunded, 15 s → 5 min backoff, never falls back (ADR-05)</td>
+</tr>
+<tr>
+<td>lost token</td>
+<td>the reconciler republishes from Postgres</td>
+</tr>
+</tbody>
+</table></div>
+</section><section id="6-capacity-model"><h2 class="parttitle" id="h-6-capacity-model">6. Capacity model</h2>
+<p>Measured on 1x L40S 46 GB, vLLM 0.13, Qwen2.5-VL-3B / Qwen3-4B / Qwen3-Embedding-0.6B.</p>
+<p><strong>Page reading is GPU-memory-bandwidth bound.</strong>
+- At saturation: memory bandwidth 80–99%, clocks at max, ~300 of 350 W.
+- Throughput ≈ concurrent reads × 60 / read seconds, until the GPU saturates. Beyond that, more slots only raise
+  per-page latency (failure 13).</p>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>page type</th>
+<th>read time under load</th>
+<th>pages/min at saturation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>handwritten line (IAM)</td>
+<td>5 s</td>
+<td>~600+ (IAM-only mix)</td>
+</tr>
+<tr>
+<td>generated form</td>
+<td>20–25 s</td>
+<td>~110–170</td>
+</tr>
+<tr>
+<td>scanned form / document (FUNSD, DocVQA, XFUND)</td>
+<td>40–80 s</td>
+<td>~40–70</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Queries are bounded by the agent model's batch slots.</strong>
+- On a shared GPU, throughput plateaued at ~130 queries/min, where 32 slots were full and 64 requests waited.
+- Each query makes ~1.2 LLM calls after the up-front search (ADR-14), at 1–3 s each.</p>
+<p><strong>Sizing rules:</strong></p>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>Quantity</th>
+<th>Rule</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>worker concurrency (total)</td>
+<td>≈ Σ model-vlm replicas × <code>--max-num-seqs</code> (more only queues inside vLLM)</td>
+</tr>
+<tr>
+<td>model-vlm replicas</td>
+<td>backlog-driven, bounded by GPUs available to the ingest pool</td>
+</tr>
+<tr>
+<td>KV cache per server</td>
+<td>the measured peak use at target concurrency + 25%; fixed via <code>--kv-cache-memory-bytes</code> on shared GPUs</td>
+</tr>
+<tr>
+<td>API replicas</td>
+<td>concurrency (4 per pod) for connection spreading; it's never the bottleneck</td>
+</tr>
+</tbody>
+</table></div>
+</section><section id="7-decision-records"><h2 class="parttitle" id="h-7-decision-records">7. Decision records</h2>
+<p>Each record: context → decision → evidence → consequences.</p>
+<h4 id="adr-01-scale-on-demand-signals-not-cpu-accepted">ADR-01: Scale on demand signals, not CPU (accepted)</h4>
+<p><strong>Context.</strong> Workers and API pods spend nearly all their time waiting on model servers.
+<strong>Decision.</strong> Scale every tier on its own demand signal: queue depth for workers, queries in flight for the API,
+running + waiting requests for vLLM. Use KEDA, which drives a standard HPA and adds scale-to-zero.
+<strong>Evidence.</strong> API pods used ~5 mCPU each with 96 queries in flight. Workers scaled 0 → 6 in 30 s on queue depth.
+<strong>Consequences.</strong> Every scaler threshold has to be reachable from the upstream tier's maximum (failure 2). In-app
+limits have to sit above KEDA maxima (failure 1). KEDA-managed Deployments must not set <code>replicas</code> (failure 4).</p>
+<h4 id="adr-02-gpus-only-in-model-servers-workers-are-cpu-clients-accepted">ADR-02: GPUs only in model servers; workers are CPU clients (accepted)</h4>
+<p><strong>Context.</strong> GPU pods are slow to start (~1 min) and expensive; work arrives in bursts.
+<strong>Decision.</strong> Only vLLM servers request GPUs. Workers are HTTP clients, and vLLM's continuous batching turns their
+concurrency into GPU throughput.
+<strong>Evidence.</strong> Workers scaled to 72 in seconds while model servers changed rarely. Throughput rose with worker
+concurrency until the GPU saturated.
+<strong>Consequences.</strong> Concurrency limits belong to the model tier (ADR-08). Load balancing to model servers matters
+(ADR-06).</p>
+<h4 id="adr-03-postgres-is-the-source-of-truth-for-jobs-stages-are-idempotent-accepted">ADR-03: Postgres is the source of truth for jobs; stages are idempotent (accepted)</h4>
+<p><strong>Context.</strong> Workload rules (priority, fair share, pause, per-dataset caps) and recovery need queryable state.
+<strong>Decision.</strong> A jobs table claimed with <code>FOR UPDATE SKIP LOCKED</code>, leases and heartbeats, retries with exponential
+backoff, <code>dead</code> after max attempts. Every stage is idempotent (upserts, delete-then-insert chunks).
+<strong>Evidence.</strong> 14,614 pages through several worker restarts and model-server outages, with 0 lost.
+<strong>Consequences.</strong> Postgres load grows with workers. Polling is acceptable to ~100 workers; beyond that, see ADR-04.</p>
+<h4 id="adr-04-work-dispatch-through-rabbitmq-tokens-accepted-to-revisit">ADR-04: Work dispatch through RabbitMQ tokens (accepted; to revisit)</h4>
+<p><strong>Context.</strong> Idle workers polling Postgres; KEDA needs a cheap backlog signal.
+<strong>Decision.</strong> One RabbitMQ token per runnable job: published after commit, consumed before claiming, delayed
+queues for backoff, and a reconciler that rebuilds tokens from Postgres.
+<strong>Evidence.</strong> Correct under test against a real broker. KEDA scaled on queue depth reliably.
+<strong>Consequences / revisit.</strong> It's two systems for one job, with a reconciler to maintain. <strong>Criteria for keeping
+it:</strong> more than ~100 concurrent workers, several producer services, or a need for routing and fan-out. Otherwise
+Postgres with <code>LISTEN/NOTIFY</code> and KEDA's Postgres scaler is simpler with the same behaviour.</p>
+<h4 id="adr-05-an-infrastructure-outage-is-not-a-page-failure-accepted">ADR-05: An infrastructure outage is not a page failure (accepted)</h4>
+<p><strong>Context.</strong> A one-minute model-server restart downgraded 264 pages to fallback text (failure 12).
+<strong>Decision.</strong> The model client raises <code>ModelUnavailable</code> for connection errors, timeouts, 429 and 5xx. Workers
+defer: the attempt is refunded, backoff runs 15 s → 5 min, and there's never a fallback. The API returns 503 with
+<code>Retry-After</code>. <code>reread-fallbacks</code> repairs past damage.
+<strong>Evidence.</strong> The next restart produced 590 deferrals, 0 dead and 0 downgraded pages.</p>
+<h4 id="adr-06-an-inference-gateway-in-front-of-all-model-servers-proposed">ADR-06: An inference gateway in front of all model servers (proposed)</h4>
+<p><strong>Context.</strong> Kubernetes Services balance per connection. Keep-alive pinned every worker to one replica (16+6
+waiting vs 2), and random placement still left one replica with 24+11 while another had free slots. Tracing, auth
+and limits have no single home.
+<strong>Options.</strong>
+1. kube-proxy IPVS with least-connection: simple, but connection-level only.
+2. An Envoy-based gateway with least-request: request-level, with no model awareness.
+3. Gateway API Inference Extension / llm-d: routes on queue depth and KV-cache state, model-aware.
+4. LiteLLM: model routing, keys, budgets and limits, and Lens tracing integration.</p>
+<p><strong>Decision (proposed).</strong> Use a model-aware gateway (option 3) for routing, or LiteLLM (option 4) where per-client
+keys, budgets and tracing matter more than KV-aware routing. Every model call from the API and workers goes through
+it, and model roles become routes.
+<strong>Acceptance.</strong> At equal load, the gap in batch occupancy between replicas is under 20%. Every request is traced.</p>
+<h4 id="adr-07-isolate-gpu-pools-by-role-on-one-gpu-ingest-yields-to-an-slo-proposed">ADR-07: Isolate GPU pools by role; on one GPU, ingest yields to an SLO (proposed)</h4>
+<p><strong>Context.</strong> Time-slicing has no priority between processes, and the L40S has no MIG partitioning. Ingest and
+queries competed: query p95 hit 42 s while ingest ran. The current answer is manual ingest/query modes.
+<strong>Decision (proposed).</strong>
+- <strong>With two or more GPUs:</strong> a query pool (model-llm, model-embed) and an ingest pool (model-vlm) on separate GPUs,
+  each autoscaled on its own queue.
+- <strong>On one GPU:</strong> automatic back-off. Page-reading concurrency is reduced when measured query p95 exceeds S2, and
+  restored when it recovers. That replaces the manual modes with a feedback loop on the SLO, not on a fixed in-flight
+  count.</p>
+<p><strong>Acceptance.</strong> S2 holds during a full-speed ingest. No manual mode switches.</p>
+<h4 id="adr-08-async-workers-with-capacity-derived-concurrency-scale-model-servers-on-the-backlog-proposed">ADR-08: Async workers with capacity-derived concurrency; scale model servers on the backlog (proposed)</h4>
+<p><strong>Context.</strong> One job per pod meant 72 pods to keep 72 page reads in flight. Workers beyond model capacity only
+lengthened vLLM queues (failures 1, 13).
+<strong>Decision (proposed).</strong>
+- Each worker pod runs N concurrent jobs (async I/O).
+- Total worker concurrency = model-vlm replicas × batch slots, computed and published by the control plane.
+- KEDA scales <strong>model-vlm</strong> on the backlog (bounded by the GPU pool) and the workers on model capacity.</p>
+<p><strong>Acceptance.</strong> The same throughput with ≤ 8 worker pods. Adding a model-vlm replica raises worker concurrency
+automatically.</p>
+<h4 id="adr-09-page-images-in-object-storage-queue-and-vectors-separated-ha-postgres-proposed">ADR-09: Page images in object storage; queue and vectors separated; HA Postgres (proposed)</h4>
+<p><strong>Context.</strong> One single-node Postgres holds images (<code>bytea</code>), vectors, full text, jobs and query logs.
+<strong>Decision (proposed).</strong>
+- Images go to S3-compatible storage, referenced by key.
+- Vectors and chunks go to a replicated or managed Postgres with pgvector.
+- The job queue moves to a separate database, or to the broker if ADR-04 is revisited.</p>
+<p><strong>Trigger.</strong> Beyond ~100k pages, or any production use.</p>
+<h4 id="adr-10-vllm-per-model-role-with-fixed-memory-budgets-on-shared-gpus-accepted">ADR-10: vLLM per model role, with fixed memory budgets on shared GPUs (accepted)</h4>
+<p><strong>Decision.</strong>
+- One vLLM server per role.
+- On shared GPUs: a fixed <code>--kv-cache-memory-bytes</code> (startup profiling miscounts when servers start together,
+  failure 8) and <code>Recreate</code> updates (rolling updates deadlock on GPU memory, failure 5).
+- On whole GPUs: rolling updates and utilisation-based sizing.</p>
+<p><strong>Evidence.</strong> Stable co-location of 3–5 servers on one L40S.</p>
+<h4 id="adr-11-evaluation-is-a-release-gate-accepted-ci-gate-proposed">ADR-11: Evaluation is a release gate (accepted; CI gate proposed)</h4>
+<p><strong>Context.</strong> A load test with 0 errors had 17% correct answers.
+<strong>Decision.</strong> Four eval layers:
+1. extraction and handwriting vs ground truth
+2. retrieval hit@k
+3. RAGAS end-to-end (judge in-cluster)
+4. model benchmarks for any model swap</p>
+<p>Changes to search, the agent or a model need the matching layer to hold (Part 9 of the write-up has the mapping).
+<strong>Proposed.</strong> Run layers 1–2 on every merge, and RAGAS nightly, with thresholds S5.</p>
+<h4 id="adr-12-authentication-and-transport-security-proposed">ADR-12: Authentication and transport security (proposed)</h4>
+<p><strong>Context.</strong> An API key is the only auth. Grafana and Headlamp are exposed over plain HTTP.
+<strong>Decision (proposed).</strong> TLS and OIDC at the ingress. Dashboards only behind SSO or a VPN. Per-client keys at the
+gateway (ADR-06).</p>
+<h4 id="adr-13-tracing-in-opentelemetry-with-openinference-attributes-accepted-in-code-backend-proposed">ADR-13: Tracing in OpenTelemetry with OpenInference attributes (accepted in code; backend proposed)</h4>
+<p><strong>Decision.</strong> One trace per query: an AGENT root span, then LLM and TOOL spans per step, with the trace id returned
+by <code>/query</code>. The backend (Lens, or any OTLP collector) is configured by endpoint only. With the gateway (ADR-06),
+model calls from workers are traced too.</p>
+<h4 id="adr-14-hybrid-retrieval-with-identifier-boost-search-before-the-first-llm-call-accepted">ADR-14: Hybrid retrieval with identifier boost; search before the first LLM call (accepted)</h4>
+<p><strong>Context.</strong> Document codes were tokenised as negative numbers. The text branch took arbitrary rows. Near-identical
+forms made vector ranking noise.
+<strong>Decision.</strong>
+- Normalise hyphenated codes in the full-text index.
+- Rank the text branch properly.
+- Add an identifier-match term to RRF fusion.
+- Run the first search before the agent's first LLM call.
+- Allow document-scoped questions.</p>
+<p><strong>Evidence.</strong> Answer accuracy 17% → 97.5%; hit@1 99.0% on 11,560 pages; one fewer LLM call per query.</p>
+</section><section id="8-roadmap"><h2 class="parttitle" id="h-8-roadmap">8. Roadmap</h2>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>Order</th>
+<th>Change</th>
+<th>Decision</th>
+<th>Done when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Inference gateway for all model traffic</td>
+<td>ADR-06, ADR-13</td>
+<td>replicas balanced within 20%; all model calls traced</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Async workers, capacity-derived limits, model-vlm on backlog</td>
+<td>ADR-08</td>
+<td>same throughput with ≤ 8 worker pods</td>
+</tr>
+<tr>
+<td>3</td>
+<td>SLO-driven ingest back-off</td>
+<td>ADR-07</td>
+<td>S2 holds during full ingest without mode switches</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Eval gate in CI</td>
+<td>ADR-11</td>
+<td>layers 1–2 per merge, RAGAS nightly</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Object storage, HA Postgres, queue separation</td>
+<td>ADR-09</td>
+<td>before production / ~100k pages</td>
+</tr>
+<tr>
+<td>6</td>
+<td>TLS + OIDC, dashboards behind SSO</td>
+<td>ADR-12</td>
+<td>before any shared use</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Revisit RabbitMQ vs Postgres-only dispatch</td>
+<td>ADR-04</td>
+<td>decision recorded with load evidence</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Faster page reader (FP8) if quality holds</td>
+<td>ADR-10, ADR-11</td>
+<td>benchmark: equal quality per dataset, higher pages/min</td>
+</tr>
+</tbody>
+</table></div>
+</section><section id="9-open-questions"><h2 class="parttitle" id="h-9-open-questions">9. Open questions</h2>
+<ul>
+<li><strong>Handwriting classification.</strong> The model labels only 67% of handwritten lines as handwritten, and ~1% on forms.
+  Options: a dedicated classifier per region, a larger reader, or dropping the label and relying on text. It decides
+  whether <code>kind=handwritten</code> filtering is a feature or should be removed.</li>
+<li><strong>Page-scoped vs corpus questions.</strong> Many real questions are about "this document". Should the API model
+  documents and conversations explicitly, rather than only a <code>doc_id</code> scope?</li>
+<li><strong>Re-processing policy.</strong> When the reader changes, which pages get re-read: none, degraded ones, or everything?
+  Re-embedding is cheap (minutes); re-reading costs hours of GPU time.</li>
+</ul></section></main></div></body></html>

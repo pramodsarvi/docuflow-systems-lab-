@@ -1,107 +1,67 @@
 # DocuFlow: Document Ingestion & RAG on Kubernetes
 
-Read scanned documents with a vision model, make them searchable, and answer questions. Scales from zero to 200 pages/min on a single GPU.
+DocuFlow reads scanned documents with a vision model, indexes them in Postgres + pgvector, and answers questions with a small agent loop. Ingest, query and evaluation share the GPUs, and each one scales on its own signal.
+
+> **Status:** the core platform (`k8s/base` + `k8s/components` + overlays) is what CI and the stress runs exercise. The LiteLLM + llm-d gateway (`k8s/base/llm-stack-combined.yaml`) is **experimental**. It is not in the kustomization and it has not been benchmarked. See [Experimental: LLM gateway](#experimental-llm-gateway).
+
+## Contents
+
+1. [Architecture](#architecture)
+2. [Pipelines](#pipelines)
+3. [Scaling](#scaling)
+4. [Measured performance](#measured-performance)
+5. [Deploy](#deploy)
+6. [Monitor](#monitor)
+7. [Troubleshoot](#troubleshoot)
+8. [Experimental: LLM gateway](#experimental-llm-gateway)
+9. [Files](#files)
 
 ---
 
-## Table of Contents
-
-1. [System Architecture](#system-architecture)
-2. [How It Works](#how-it-works)
-3. [Deployment](#deployment)
-4. [Monitoring](#monitoring)
-5. [Troubleshooting](#troubleshooting)
-6. [Scaling & Tuning](#scaling--tuning)
-
----
-
-## System Architecture
+## Architecture
 
 ```mermaid
 graph TB
-    subgraph "API Layer"
-        INGRESS["Ingress<br/>example.com"]
-        API1["api-1"]
-        API2["api-2"]
-        SVC_API["Service api<br/>:8791"]
+    subgraph API
+        ING[Ingress] --> API1[api<br/>FastAPI :8791]
     end
-    
-    subgraph "Ingest Pipeline (Parallel Workers)"
-        WIO["worker-io<br/>Fetch pages"]
-        WVLM["worker-vlm<br/>Read pages<br/>(vision model)"]
-        WEMBED["worker-embed<br/>Embed chunks"]
+    subgraph Queue["RabbitMQ (one durable queue per lane)"]
+        QIO[docuflow.io]
+        QVLM[docuflow.vlm]
+        QEMB[docuflow.embed]
+        QRAG[docuflow.ragas]
     end
-    
-    subgraph "LLM Gateway Stack (Intelligent Routing)"
-        LITE["LiteLLM Proxy<br/>:4000<br/>Keys, rate limits,<br/>cost tracking"]
-        LLMD["llm-d Gateway<br/>:8000<br/>Pod routing,<br/>queue-aware"]
+    subgraph Workers
+        WIO[worker-io<br/>fetch]
+        WVLM[worker-vlm<br/>read pages]
+        WEMB[worker-embed<br/>embed chunks]
+        WRAG[worker-ragas<br/>eval]
     end
-    
-    subgraph "GPU Servers (Auto-scaled)"
-        MVLM["vLLM Pods<br/>Vision model<br/>(Qwen2.5-VL-3B)"]
-        MEMBED["vLLM Pods<br/>Embed model<br/>(Qwen3-Embedding)"]
-        MAGENT["vLLM Pods<br/>Agent model<br/>(Qwen3-4B)"]
+    subgraph Models["vLLM model servers (:8000, OpenAI API)"]
+        MVLM[model-vlm<br/>Qwen2.5-VL-3B-Instruct]
+        MLLM[model-llm<br/>Qwen3-4B-Instruct-2507]
+        MEMB[model-embed<br/>Qwen3-Embedding-0.6B]
     end
-    
-    subgraph "Storage"
-        PG["Postgres + pgvector<br/>Jobs, chunks, vectors,<br/>latencies"]
-        RMQ["RabbitMQ<br/>Work tokens<br/>4 queues"]
-    end
-    
-    INGRESS -->|routes| SVC_API
-    SVC_API --> API1 & API2
-    
-    API1 & API2 -->|Create jobs| PG
-    API1 & API2 -->|Publish tokens| RMQ
-    
-    RMQ -->|dispatch| WIO & WVLM & WEMBED
-    
-    WVLM -->|request| LITE
-    LITE -->|forward| LLMD
-    LLMD -->|route| MVLM
-    MVLM -->|record latency| PG
-    
-    WEMBED -->|request| LITE
-    LITE -->|forward| LLMD
-    LLMD -->|route| MEMBED
-    MEMBED -->|record latency| PG
-    
-    API1 & API2 -->|query| LITE
-    LITE -->|forward| LLMD
-    LLMD -->|route| MAGENT
-    MAGENT -->|record latency| PG
-    
-    style LITE fill:#ff9800
-    style LLMD fill:#4caf50
+    PG[(Postgres + pgvector<br/>jobs, chunks, queries,<br/>model_latencies, eval_results)]
+
+    API1 -->|create jobs| PG
+    API1 -->|publish tokens| Queue
+    QIO --> WIO
+    QVLM --> WVLM
+    QEMB --> WEMB
+    QRAG --> WRAG
+    WVLM --> MVLM
+    WEMB --> MEMB
+    API1 -->|agent loop| MLLM
+    API1 -->|search| PG
+    WIO & WVLM & WEMB & WRAG -->|state, results| PG
 ```
 
-### Three Workloads, One GPU
+Postgres is the source of truth for job state. A RabbitMQ message is only a *token* that says "a runnable job exists in this lane". Workers claim the real job row in Postgres. KEDA reads the queue length, and `broker.reconcile()` tops the queue up again if tokens are lost.
 
-```mermaid
-graph LR
-    subgraph "Ingest Workers"
-        W1["RabbitMQ queue<br/>KEDA scales on<br/>queue depth"]
-        W1A["worker-io<br/>worker-vlm<br/>worker-embed"]
-    end
-    
-    subgraph "GPU Servers"
-        W2["Model latency p95<br/>KEDA scales on<br/>latency > 5s"]
-        W2A["vLLM pod 1<br/>vLLM pod 2<br/>vLLM pod N"]
-    end
-    
-    subgraph "Evaluation"
-        W3["Fixed pool<br/>worker-ragas-1<br/>worker-ragas-2"]
-    end
-    
-    W1 -.-> W1A
-    W2 -.-> W2A
-    
-    style W1 fill:#ff5722
-    style W2 fill:#ff9800
-    style W3 fill:#9c27b0
-```
+Every model call goes through `docuflow/llm.py`. It looks up the endpoint for the role in `config.ENDPOINTS` and records each call's latency in `model_latencies`. vLLM never writes to Postgres.
 
-### One Request Flow
+### One page, end to end
 
 ```mermaid
 sequenceDiagram
@@ -109,419 +69,180 @@ sequenceDiagram
     participant PG as Postgres
     participant RMQ as RabbitMQ
     participant W as worker-vlm
-    participant LITE as LiteLLM
-    participant LLMD as llm-d
-    participant MVLM as vLLM pod
+    participant M as model-vlm
 
-    API->>PG: Create job
-    API->>RMQ: Publish token
-    W->>RMQ: Claim token
-    W->>LITE: POST /chat/completions
-    LITE->>LITE: ✓ Key valid, ✓ Rate OK
-    LITE->>LLMD: Forward
-    LLMD->>LLMD: Poll /metrics, pick least busy
-    LLMD->>MVLM: Route to pod
-    MVLM->>MVLM: Vision inference
-    MVLM-->>LITE: Response
-    LITE->>PG: Record latency, cost
-    LITE-->>W: Response
-    W->>PG: Store result
+    API->>PG: INSERT job (lane=vlm, status=queued)
+    API->>RMQ: publish token to docuflow.vlm
+    W->>RMQ: take token
+    W->>PG: claim job (status=running)
+    W->>M: POST /v1/chat/completions (page image)
+    M-->>W: extracted text
+    W->>PG: store extraction, INSERT model_latencies
+    W->>PG: job done, enqueue embed job
 ```
 
 ---
 
-## How It Works
+## Pipelines
 
-### The Three Pipelines
+| Pipeline | Path | Trigger |
+|---|---|---|
+| **Ingest** | `fetch` (worker-io) → `extract` (worker-vlm → model-vlm) → `embed` (worker-embed → model-embed) → `chunks` | `POST` ingest via API |
+| **Query** | api → vector search in pgvector → agent loop on model-llm (can call model-vlm to look at a page) → answer + sources | `POST` query |
+| **Eval** | `POST /eval` → `service.start_eval()` queues one `eval` job per query that has not been evaluated yet → worker-ragas → `eval_results` | manual |
 
-**1. Ingest: Read & Index**
-```
-PDF → worker-io (fetch pages) 
-    → worker-vlm (vision: read text via LiteLLM+llm-d+vLLM)
-    → worker-embed (embeddings)
-    → Postgres (chunks + vectors)
-```
-Scales on: RabbitMQ queue depth (0 to 16+ pods)  
-Speed: 100-200 pages/min on one GPU
-
-**2. Query: Agent Loop**
-```
-Question → api (search vectors)
-        → vLLM agent (answer via LiteLLM+llm-d+vLLM)
-        → Sources + answer
-```
-Scales on: Query latency p95 (1 to 8 GPU pods)  
-Latency: <15s p95 during ingest
-
-**3. Eval: Quality Metrics**
-```
-Results → worker-ragas (RAGAS evaluation)
-       → Postgres (faithfulness, relevancy, context)
-```
-Fixed: 2 workers (not auto-scaled)
-
-### Gateway: LiteLLM + llm-d
-
-All requests go through **two intelligent layers**:
-
-```mermaid
-graph LR
-    W["worker"]
-    LITE["LiteLLM<br/>:4000"]
-    LLMD["llm-d<br/>:8000"]
-    P1["Pod 1<br/>queue=2 ✓"]
-    P2["Pod 2<br/>queue=8"]
-    
-    W -->|POST + key| LITE
-    LITE -->|Key valid<br/>Rate limit OK<br/>Log request| LLMD
-    LLMD -->|Poll metrics<br/>Score: 2 vs 8| P1
-    P1 -->|Response| LLMD
-    LLMD -->|Response| LITE
-    LITE -->|Cost + latency| W
-    
-    style LITE fill:#ff9800
-    style LLMD fill:#4caf50
-    style P1 fill:#c8e6c9
-    style P2 fill:#ffebee
-```
-
-**Layer 1 (LiteLLM):** API keys, rate limits, cost tracking, logging  
-**Layer 2 (llm-d):** Pod discovery, queue-aware routing, health checks
-
-### Scaling Behavior
-
-```mermaid
-graph TB
-    A["Ingest starts<br/>1000 pages"]
-    B["KEDA scales workers<br/>worker-vlm → 8 pods"]
-    C["Model latency p95: 8s<br/>KEDA scales GPU<br/>vLLM → 4 pods"]
-    D["Latency drops to 2-3s<br/>Ingest speed: 200 pages/min"]
-    E["After 2 min idle<br/>Scale to zero<br/>Save GPU memory"]
-    
-    A --> B --> C --> D --> E
-    
-    style C fill:#ff9800
-    style D fill:#4caf50
-    style E fill:#9c27b0
-```
+> `pipeline.run_eval()` is currently a **stub**. It only stores query metadata in `eval_results` and does not compute RAGAS scores yet. Offline RAGAS reports are in `evals/`.
 
 ---
 
-## Performance
+## Scaling
 
-| Metric | Value | Notes |
-|--------|-------|-------|
-| Ingest speed | 100-200 pages/min | Single GPU, parallel workers |
-| Extract latency p95 | 2-5 sec | Per page |
-| Query latency p95 | <15 sec | During ingest |
-| Cost per page | $0.01-0.05 | Model dependent |
-| Max concurrent docs | 10,000+ | Limited by Postgres |
-| Min GPU | 1x L40S 46GB | Or equivalent NVIDIA |
+| Workload | Scaler (`k8s/base/keda.yaml`) | Min → Max | Signal |
+|---|---|---|---|
+| worker-vlm | KEDA | 0 → 24 | `docuflow.vlm` queue length + running vlm jobs |
+| worker-embed | KEDA | 0 → 3 | `docuflow.embed` queue + running jobs |
+| worker-io | KEDA | 0 → 3 | `docuflow.io` queue + running jobs |
+| api | KEDA | 1 → 8 | queries in flight |
+| worker-ragas | none (fixed) | 2 | — |
+| model-vlm / model-embed | KEDA (`k8s/components/models/autoscaling.yaml`) | 1 → 2 | vLLM in-flight requests per replica (Prometheus, threshold 4) |
 
----
-
-## Tech Stack
-
-| Layer | Tech | Why |
-|-------|------|-----|
-| API | Python FastAPI | Simple, async I/O |
-| Queue | RabbitMQ | Work tokens (KEDA scales on it) |
-| Jobs | Postgres + pgvector | Source of truth for job state & vectors |
-| Models | vLLM (Qwen models) | Fast inference, continuous batching |
-| Routing | LiteLLM + llm-d | App policy + K8s intelligence |
-| Scaling | KEDA | Reacts to queue depth & latency |
-| Orchestration | Kubernetes | Pod scaling, networking |
+Ingest workers scale to zero 60 s after their queue drains (`cooldownPeriod: 60`). Model servers keep at least one replica, so the GPUs are **not** released when the system is idle.
 
 ---
 
-## Deployment
+## Measured performance
+
+All runs used one L40S with real models. Source: [`blog/06-stress-tests.md`](blog/06-stress-tests.md) and `docs/stress-report-run1.md`.
+
+| Run | Ingest throughput |
+|---|---|
+| Run 1 (in-app worker cap of 8) | 34 pages/min |
+| Run 2 (cap fixed) | 56.5 pages/min |
+| Ingest mode: 3 vLLM replicas, 48 workers, easy printed pages | ~170 pages/min |
+| Same setup, scans and forms only (GPU compute-bound) | ~74 pages/min |
+
+Query latency during the run-1 ingest was p50 9.6 s, p95 16.6 s and max 25.2 s.
+
+Throughput depends on the page mix more than on the replica count. Do not quote cost-per-page or capacity numbers until they have been measured.
+
+---
+
+## Deploy
 
 ### Prerequisites
-- Kubernetes 1.28+
-- Postgres 14+
-- RabbitMQ 3.13+
-- 1x NVIDIA GPU (L40S recommended)
+- Kubernetes 1.28+ with KEDA installed
+- NVIDIA device plugin and a GPU node for the real-model overlays (`deploy/helm-values/`)
+- A `docuflow-secrets` Secret with `DOCUFLOW_DSN`, `POSTGRES_PASSWORD`, `RABBITMQ_URL`, `RABBITMQ_PASSWORD`, and optionally `DOCUFLOW_API_KEY`, `LLM_API_KEY`, `HF_TOKEN`
 
-### Deploy Everything (3 Commands)
+### Apply an overlay
+
+Everything is installed into the `docuflow` namespace through kustomize:
 
 ```bash
-# 1. Deploy stack (LiteLLM + llm-d + vLLM + KEDA)
-kubectl apply -f k8s/base/llm-stack-combined.yaml
-
-# 2. Deploy workers and API
-kubectl apply -f k8s/base/workers.yaml
-kubectl apply -f k8s/base/api.yaml
-
-# 3. Patch workers to use LiteLLM
-kubectl patch deployment worker-vlm -p '{"spec":{"template":{"spec":{"containers":[{"name":"worker","envFrom":[{"configMapRef":{"name":"docuflow-config-litellm"}},{"secretRef":{"name":"docuflow-secrets"}}]}]}}}}'
-
-kubectl patch deployment worker-embed -p '{"spec":{"template":{"spec":{"containers":[{"name":"worker","envFrom":[{"configMapRef":{"name":"docuflow-config-litellm"}},{"secretRef":{"name":"docuflow-secrets"}}]}]}}}}'
+kubectl apply -k k8s/overlays/ci-sim      # simulated models, no GPU (CI)
+kubectl apply -k k8s/overlays/local-gpu   # real vLLM models on one GPU
+kubectl apply -k k8s/overlays/prod        # prod sizing
 ```
 
 ### Verify
 
 ```bash
-# Check pods
-kubectl get pods
-# Should see: litellm-proxy, model-vlm, worker-vlm, worker-embed, api, postgres, rabbitmq
-
-# Check gateway
-kubectl get gateway llm-d-gateway
-# Should show: Ready
-
-# Check metrics
-kubectl port-forward model-vlm-0 8000:8000 &
-curl localhost:8000/metrics | grep queue_depth
+kubectl -n docuflow get pods
+kubectl -n docuflow get scaledobjects
+kubectl -n docuflow port-forward svc/model-vlm 8000:8000 &
+curl -s localhost:8000/metrics | grep -E 'vllm:num_requests_(running|waiting)'
 ```
 
 ---
 
-## Monitoring
+## Monitor
 
-### 3 Key SQL Queries
-
-**1. Ingest Speed (Pages/Sec)**
+**Ingest throughput (jobs finished per minute, by stage)**
 ```sql
-SELECT 
-  COUNT(*) / EXTRACT(EPOCH FROM (max(updated_at) - min(updated_at))) as pages_per_sec
+SELECT stage, count(*) / 5.0 AS jobs_per_min
 FROM jobs
-WHERE status = 'done' AND updated_at > now() - interval '5 minutes';
+WHERE status = 'done' AND finished_at > now() - interval '5 minutes'
+GROUP BY stage;
 ```
-Target: 2-3 pages/sec (120-180 pages/min)
 
-**2. GPU Latency (p95)**
+**Model latency p95 (written by `llm.py`)**
 ```sql
-SELECT 
-  stage,
-  PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY latency_ms) as p95_ms,
-  COUNT(*) as requests
+SELECT stage, endpoint,
+       percentile_cont(0.95) WITHIN GROUP (ORDER BY latency_ms) AS p95_ms,
+       count(*) AS calls
 FROM model_latencies
 WHERE ts > now() - interval '2 minutes'
-GROUP BY stage;
+GROUP BY stage, endpoint;
 ```
-Target: extract < 5000ms, embed < 3000ms
 
-**3. Queue Depth & Running Jobs**
+**Backlog per lane**
 ```sql
-SELECT 
-  COUNT(*) FILTER(WHERE status='queued') as queued,
-  COUNT(*) FILTER(WHERE status='running') as running
+SELECT lane,
+       count(*) FILTER (WHERE status = 'queued')  AS queued,
+       count(*) FILTER (WHERE status = 'running') AS running,
+       count(*) FILTER (WHERE status = 'dead')    AS dead
 FROM jobs
-WHERE created_at > now() - interval '1 hour';
+GROUP BY lane;
 ```
-Target: queued < 100, running matches worker pods
 
-### Logs to Watch
+Prometheus alerts and the Grafana dashboard are defined in `k8s/components/monitoring/`.
 
+---
+
+## Troubleshoot
+
+**Model calls are slow**
 ```bash
-# LiteLLM: Key validation, rate limits, cost
-kubectl logs -f deployment/litellm-proxy
-
-# llm-d: Pod routing decisions
-kubectl logs -f deployment/llm-d-controller -n kube-system
-
-# Workers: Job processing
-kubectl logs -f deployment/worker-vlm
-
-# GPU latency
-kubectl exec -it model-vlm-0 -- curl localhost:8000/metrics | grep -E "queue|cache"
+kubectl -n docuflow get pods -l app=model-vlm
+kubectl -n docuflow get hpa                        # KEDA creates HPAs named keda-hpa-<scaledobject>
+kubectl -n docuflow exec deploy/model-vlm -- curl -s localhost:8000/metrics | grep vllm:num_requests_waiting
 ```
 
----
+**Workers are idle while jobs are queued**
+```bash
+kubectl -n docuflow exec rabbitmq-0 -- rabbitmqctl list_queues name messages
+kubectl -n docuflow get scaledobject worker-vlm
+kubectl -n docuflow logs deploy/worker-vlm --tail=50
+```
+If the queue is empty but `jobs` still has `queued` rows, check whether the lane or dataset is paused (`control` table, key `paused`). If it isn't paused, `reconcile()` should republish the tokens on the next worker loop.
 
-## Troubleshooting
-
-### "Requests are slow (p95 > 5s)"
-
-1. Check GPU pod count:
-   ```bash
-   kubectl get pods -l app=model-vlm
-   ```
-
-2. Check KEDA is working:
-   ```bash
-   kubectl describe hpa model-vlm-latency | grep -A 5 "Current"
-   ```
-
-3. Check vLLM metrics:
-   ```bash
-   kubectl exec -it model-vlm-0 -- curl localhost:8000/metrics | grep queue_depth
-   ```
-
-4. Restart if metrics are stale:
-   ```bash
-   kubectl delete pods -l app=model-vlm
-   ```
-
-### "Workers aren't processing"
-
-1. Check queue has tokens:
-   ```bash
-   kubectl exec -it rabbitmq-0 -- rabbitmqctl list_queues name messages
-   # Should show vlm queue with pending messages
-   ```
-
-2. Check workers are running:
-   ```bash
-   kubectl get deploy worker-vlm -o jsonpath='{.status.desiredReplicas},{.status.readyReplicas}'
-   ```
-
-3. Check worker logs:
-   ```bash
-   kubectl logs deployment/worker-vlm | head -20
-   # Look for connection errors
-   ```
-
-### "LiteLLM is rejecting requests"
-
-1. Check key validation:
-   ```bash
-   kubectl logs deployment/litellm-proxy | grep -i "401\|unauthorized"
-   ```
-
-2. Check rate limit:
-   ```bash
-   kubectl logs deployment/litellm-proxy | grep -i "429\|rate_limit"
-   ```
-
-3. Check backend is responding:
-   ```bash
-   kubectl logs deployment/litellm-proxy | grep -i "llm-d\|gateway\|error"
-   ```
+**Jobs end up `dead`**: look at `jobs.error` and `jobs.attempts`. The `outages` column counts deferrals that were caused by model-server outages.
 
 ---
 
-## Scaling & Tuning
+## Experimental: LLM gateway
 
-### Increase Ingest Speed
+`k8s/base/llm-stack-combined.yaml` sketches a two-layer gateway:
 
-1. Add more worker pods:
-   ```bash
-   kubectl scale deploy worker-vlm --replicas=16
-   ```
-
-2. Increase GPU pods:
-   ```bash
-   # Edit k8s/base/llm-stack-combined.yaml
-   # In KEDA ScaledObject: maxReplicaCount: 8 → 12
-   kubectl apply -f k8s/base/llm-stack-combined.yaml
-   ```
-
-3. Increase batch size:
-   ```bash
-   # Edit vLLM StatefulSet args
-   # --max-num-batched-tokens=8192 → 16384
-   kubectl apply -f k8s/base/llm-stack-combined.yaml
-   ```
-
-### Reduce Costs
-
-1. **Scale to zero when idle:** Already enabled (2min cooldown)
-
-2. **Use smaller model:**
-   ```bash
-   # Edit k8s/base/llm-stack-combined.yaml
-   # VLM_MODEL: "Qwen2.5-VL-3B" → "Qwen2.5-VL-2B"
-   ```
-
-3. **Reduce eval frequency:**
-   ```bash
-   # Only evaluate 10% of queries instead of 100%
-   # Edit pipeline.py: if random.random() < 0.1
-   ```
-
-### Configuration Tuning Points
-
-**Rate Limits (LiteLLM):**
-```yaml
-# In llm-stack-combined.yaml ConfigMap
-rate_limit_models:
-  - model: "extract"
-    requests_per_second: 100  # ← Adjust
-  - model: "embed"
-    requests_per_second: 200
+```mermaid
+graph LR
+    W[worker] --> L[LiteLLM proxy :4000<br/>keys, rate limits, spend]
+    L --> G[llm-d / Gateway API<br/>KV-cache & queue-aware pod picking]
+    G --> P[vLLM pods]
 ```
 
-**Routing Strategy (llm-d):**
-```yaml
-# In LLMServicePolicy
-routing:
-  strategy: "least_pending_requests"  # Options: round_robin, least_connections
-  metrics:
-    - type: "vllm_queue_depth"
-    - type: "vllm_kv_cache_utilization"
-```
+Read these known gaps before you use it:
 
-**GPU Scaling Threshold (KEDA):**
-```yaml
-# In KEDA ScaledObject
-triggers:
-  - type: postgresql
-    metadata:
-      targetQueryValue: "5000"  # Scale when p95 > 5000ms
-      minReplicaCount: 1
-      maxReplicaCount: 8
-```
+- It targets the `default` namespace and is **not** included in `k8s/base/kustomization.yaml`. The rest of the platform runs in `docuflow`.
+- The `LLMServicePolicy` and `vLLMMonitor` kinds are not upstream llm-d APIs. Upstream llm-d builds on the Gateway API Inference Extension (`InferencePool` plus an endpoint-picker). Rewrite the manifest against those APIs before you rely on it.
+- Its model names (`Qwen2.5-VL-3B`, …) don't match the names the existing vLLM components serve (`vlm-model`, `standard-model`, `embed-model`).
+- The app needs only config changes to switch over (`LLM_BACKEND`, endpoint URLs and keys in `config.py`). Make that change in an overlay rather than with `kubectl patch`, so the change stays in git.
+
+For the setup notes, see `docs/LITELLM_LLMD_SETUP.md` and `k8s/APPLY_LITELLM_STACK.md`.
 
 ---
 
-## Cost Analysis
+## Files
 
-```sql
--- Cost by model over last hour
-SELECT 
-  stage,
-  COUNT(*) as requests,
-  ROUND(AVG(latency_ms)::numeric, 0) as avg_latency_ms,
-  SUM(COUNT(*)) OVER () as total_requests
-FROM model_latencies
-WHERE ts > now() - interval '1 hour'
-GROUP BY stage;
-```
-
-**Optimization Strategy:**
-- If ingest-heavy: More worker pods (cheap), fewer GPU pods
-- If query-heavy: Fewer worker pods, more GPU pods
-- If balanced: Fix GPU at 4 pods + dynamic worker scaling
-
----
-
-## Files Reference
-
-| File | Purpose |
-|------|---------|
-| `k8s/base/llm-stack-combined.yaml` | Complete stack manifest |
-| `k8s/base/workers.yaml` | Worker & API deployments |
-| `k8s/APPLY_LITELLM_STACK.md` | Deployment step-by-step guide |
-| `docs/LITELLM_LLMD_SETUP.md` | Gateway detailed config |
-| `docuflow/llm.py` | Model client (configurable) |
-| `docuflow/config.py` | Runtime config (env vars) |
-
----
-
-## Example: Ingest 100-Page Document
-
-1. **API:** Create job (PDF, pages 1-100)
-2. **worker-io:** Fetch pages (~1-2s per page)
-3. **worker-vlm:** Read text with vision model via LiteLLM→llm-d→vLLM (~2-5s per page)
-   - Queue depth triggers worker scaling
-   - Latency triggers GPU scaling
-4. **worker-embed:** Embed 5000 chunks (~100ms per chunk)
-5. **Postgres:** Store vectors for search
-6. **worker-ragas:** Evaluate quality (30-60s total)
-7. **Done:** Document searchable + queryable in ~10 minutes
-
-Meanwhile, **queries are handled** on separate GPU pods (agent model) without blocking ingest.
-
----
-
-## Next Steps
-
-1. **Deploy** with the 3 commands above
-2. **Monitor** with the 3 SQL queries (every 5 minutes)
-3. **Scale** based on queue depth & latency
-4. **Optimize** worker/GPU counts for your workload
-
-Questions? Check the detailed guides:
-- `k8s/APPLY_LITELLM_STACK.md` – Step-by-step deployment
-- `docs/LITELLM_LLMD_SETUP.md` – Gateway configuration
+| Path | Purpose |
+|---|---|
+| `docuflow/config.py` | Runtime config (env vars, `ENDPOINTS` per model role) |
+| `docuflow/llm.py` | Model client and latency recording |
+| `docuflow/broker.py` | RabbitMQ tokens, lanes, `reconcile()` |
+| `docuflow/pipeline.py` | Stage handlers: fetch, extract, embed, eval |
+| `docuflow/db.py` | Schema |
+| `k8s/base/` | Namespace-neutral core (kustomize) |
+| `k8s/components/models/` | vLLM model servers and their autoscaling |
+| `k8s/components/monitoring/` | Alerts and dashboard |
+| `k8s/overlays/{ci-sim,local-gpu,prod}` | Deployable environments |
+| `docs/stress-report-run1.md` | Source of the performance numbers |

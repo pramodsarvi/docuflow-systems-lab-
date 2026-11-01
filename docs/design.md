@@ -59,14 +59,15 @@ searchable minutes after it arrives, and questions asked mid-ingest see everythi
                             │                      │ agent loop (search, page, image re-read, answer)
                             │ jobs + 1 token/job    ▼
                             ▼                 model-llm ─┐
-   RabbitMQ  docuflow.{io,vlm,embed} (+ .delay)          │
+   RabbitMQ  docuflow.{io,vlm,embed,ragas} (+ .delay)          │
         │ KEDA rabbitmq scaler                            │  vLLM servers, one per model role,
         ▼                                                 │  on GPU nodes (KEDA prometheus scaler
    worker-io ─► worker-vlm ─► worker-embed ──────────────►│  on vLLM running + waiting)
    (CPU pods, 0..N, one job each)        model-vlm, model-embed
         │
         ▼
-   Postgres + pgvector: documents, page images, chunks (HNSW + GIN), jobs, control, queries
+   Postgres + pgvector: documents, page images, chunks (HNSW + GIN), jobs, control, queries,
+   model_latencies, eval_results
    Prometheus + Grafana + DCGM ─ dashboards and alerts on every tier
 ```
 
@@ -74,6 +75,7 @@ searchable minutes after it arrives, and questions asked mid-ingest see everythi
 |---|---|---|
 | api | ingest requests, agent loop, workload control, metrics | KEDA: CPU 60%, 4 queries in flight per pod |
 | worker-io / vlm / embed | one pipeline stage per lane, one job at a time | KEDA: RabbitMQ lane depth + running jobs |
+| worker-ragas | RAGAS scoring of answered queries (`POST /eval`) | fixed, 2 pods |
 | model-vlm / model-llm / model-embed | vLLM inference per model role | KEDA: vLLM running + waiting requests |
 | RabbitMQ | work tokens (KEDA input, wake-ups), delayed retries | n/a (single node) |
 | Postgres | source of truth: jobs, documents, chunks, vectors, images | n/a (single node) |

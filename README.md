@@ -7,7 +7,7 @@ RabbitMQ work queue drives **KEDA** autoscaling, and Postgres + pgvector handle 
 ```
                  ┌──────────── ingress-nginx (docuflow.localtest.me) ────────────┐
                  ▼                                                                │
-   POST /ingest, /query ──► api (KEDA: CPU + queries in flight, 1..4) ────────────┘
+   POST /ingest, /query ──► api (KEDA: CPU + queries in flight, 1..8) ────────────┘
           │                    │ agent loop: search / get_page / read_page_image / answer(citations)
           │ jobs (Postgres)    │
           │ + 1 token per job  ▼
@@ -15,7 +15,8 @@ RabbitMQ work queue drives **KEDA** autoscaling, and Postgres + pgvector handle 
    RabbitMQ queues ───► │ worker-io   │   ┌──────────────────────────────────────────────────────────┐
    docuflow.io          │ worker-vlm  │──►│ model-vlm   Qwen2.5-VL (page reading)   KEDA 1..N on vLLM │
    docuflow.vlm         │ worker-embed│──►│ model-llm   Qwen3-4B-Instruct (agent)                    │
-   docuflow.embed       └─────────────┘   │ model-embed Qwen3-Embedding-0.6B (1024-d)                 │
+   docuflow.embed       │ worker-ragas│   │ model-embed Qwen3-Embedding-0.6B (1024-d)                 │
+   docuflow.ragas       └─────────────┘   │                                                          │
      ▲  KEDA rabbitmq scaler: 0..N each    └──────────────────────────────────────────────────────────┘
      └─ retries via docuflow.<lane>.delay (TTL dead-letter)        Prometheus + Grafana + DCGM, alerts
 ```
@@ -53,10 +54,12 @@ The API is at <http://docuflow.localtest.me> (dashboard at `/`), and Grafana is 
 
 | Component | Scaler | Signal | Range (local / prod) |
 |---|---|---|---|
-| `worker-io`, `worker-vlm`, `worker-embed` | KEDA **rabbitmq** + postgresql | tokens waiting on `docuflow.<lane>` (backlog); jobs running (keeps a busy pod alive) | 0..3 / 0..12 / 0..3, scale to zero |
-| `api` | KEDA cpu (the HPA metric) + postgresql | CPU 60%, interactive queries in flight (4 per pod) | 1..4 / 2..6 |
-| `model-vlm` (vLLM container) | KEDA **prometheus** | `vllm:num_requests_running + waiting` (4 per replica locally, 16 in prod) | 1..2 / 1..4 |
-| `model-llm`, `model-embed` | fixed | one vLLM server each, batching all clients | 1 |
+| `worker-io`, `worker-embed` | KEDA **rabbitmq** + postgresql | tokens waiting on `docuflow.<lane>` (backlog); jobs running (keeps a busy pod alive) | 0..3 / 0..3, scale to zero |
+| `worker-vlm` | same | same | 0..24 / 0..48, scale to zero |
+| `worker-ragas` | fixed | runs `POST /eval` jobs (RAGAS faithfulness + answer relevancy) | 2 |
+| `api` | KEDA cpu (the HPA metric) + postgresql | CPU 60%, interactive queries in flight (4 per pod) | 1..8 / 2..6 |
+| `model-vlm`, `model-embed` (vLLM) | KEDA **prometheus** | `vllm:num_requests_running + waiting` (4 per replica locally, 16 in prod) | 1..2 / 1..4 |
+| `model-llm` | fixed locally, KEDA **prometheus** in prod | same | 1 / 1..4 |
 
 **Why RabbitMQ and Postgres together.** RabbitMQ carries one token per runnable job. KEDA reads queue length from it, and
 workers take a token before claiming work. Postgres keeps the job itself: its state, lease, retries, and the

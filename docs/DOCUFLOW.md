@@ -97,14 +97,14 @@ RAGAS is installed in the image by default (`WITH_EVAL=1` in the Dockerfile). To
 
 ## Scaling
 
-| Workload | Scaler (`k8s/base/keda.yaml`) | Min → Max | Signal |
-|---|---|---|---|
-| worker-vlm | KEDA | 0 → 24 | `docuflow.vlm` queue length + running vlm jobs |
-| worker-embed | KEDA | 0 → 3 | `docuflow.embed` queue + running jobs |
-| worker-io | KEDA | 0 → 3 | `docuflow.io` queue + running jobs |
-| api | KEDA | 1 → 8 | queries in flight |
-| worker-ragas | none (fixed) | 2 | — |
-| model-vlm / model-embed | KEDA (`k8s/components/models/autoscaling.yaml`) | 1 → 2 | vLLM in-flight requests per replica (Prometheus, threshold 4) |
+| Workload | Scaler | local-gpu | prod | Signal |
+|---|---|---|---|---|
+| worker-vlm | KEDA (`k8s/base/keda.yaml`) | 0 → 24 | 0 → 48 | `docuflow.vlm` queue length + running vlm jobs |
+| worker-io, worker-embed | KEDA | 0 → 3 | 0 → 3 | lane queue length + running jobs |
+| api | KEDA | 1 → 8 | 2 → 6 | CPU + queries in flight |
+| worker-ragas | none (fixed) | 2 | 2 | — |
+| model-vlm, model-embed | KEDA (`k8s/components/models/autoscaling.yaml`) | 1 → 2 | 1 → 4 | vLLM running + waiting requests per replica (Prometheus) |
+| model-llm | fixed locally, KEDA in prod | 1 | 1 → 4 | same |
 
 Ingest workers scale to zero 60 s after their queue drains (`cooldownPeriod: 60`). Model servers keep at least one replica, so the GPUs are **not** released when the system is idle.
 

@@ -9,7 +9,7 @@
 0. **[DocuFlow Explained](00-docuflow-explained.md)** – System overview with diagrams
 1. **[Why We Refactored](01-why-we-refactored.md)** – Queue-driven vs latency-driven scaling
 2. **[Operate & Monitor](02-operate-and-monitor.md)** – Deploy, monitor, troubleshoot
-3. **[Intelligent Routing](03-intelligent-routing.md)** – llm-d gateway for queue-aware request routing
+3. **[Gateway API + llm-d Routing](03-gateway-api-routing.md)** – K8s-native intelligent routing (vs LiteLLM proxy)
 
 ## Full Series
 

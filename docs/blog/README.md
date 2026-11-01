@@ -4,11 +4,12 @@
 
 ## Quick Start
 
-**New here?** Start with the condensed 3-part series:
+**New here?** Start with the condensed 4-part series:
 
 0. **[DocuFlow Explained](00-docuflow-explained.md)** – System overview with diagrams
 1. **[Why We Refactored](01-why-we-refactored.md)** – Queue-driven vs latency-driven scaling
 2. **[Operate & Monitor](02-operate-and-monitor.md)** – Deploy, monitor, troubleshoot
+3. **[Intelligent Routing](03-intelligent-routing.md)** – llm-d gateway for queue-aware request routing
 
 ## Full Series
 

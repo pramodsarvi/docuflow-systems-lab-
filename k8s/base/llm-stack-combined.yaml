@@ -406,8 +406,22 @@ stringData:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: docuflow-config
+  name: docuflow-config-litellm
 data:
-  LLM_BASE_URL: "http://litellm-proxy:4000"
-  # Workers use LiteLLM endpoint
-  # LiteLLM backend is llm-d (handled in litellm config.yaml)
+  # All three model roles (extract/vlm, agent/llm, embed) route through LiteLLM proxy
+  LLM_BACKEND: "openai"
+  VLM_BASE_URL: "http://litellm-proxy:4000/v1"
+  LLM_BASE_URL: "http://litellm-proxy:4000/v1"
+  EMBED_BASE_URL: "http://litellm-proxy:4000/v1"
+  VLM_API_KEY: "none"
+  LLM_API_KEY: "none"
+  EMBED_API_KEY: "none"
+  VLM_MODEL: "Qwen2.5-VL-3B"
+  LLM_MODEL: "Qwen3-4B"
+  EMBED_MODEL: "Qwen3-Embedding-0.6B"
+  # Worker concurrency limits (KEDA owns pod count)
+  LIMIT_VLM: "64"
+  LIMIT_EMBED: "16"
+  PROCS_VLM: "64"
+  PROCS_EMBED: "16"
+  YIELD_TO_QUERIES: "0"

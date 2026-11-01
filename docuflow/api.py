@@ -227,6 +227,15 @@ def eval_extractions(dataset: str, n: int = 500, seed: float = 0.42):
                          (dataset, min(n, 5000))).fetchall()
 
 
+@app.post("/eval")
+def start_eval(dataset: Optional[str] = None):
+    """Queue RAGAS evaluation jobs for recent queries. Returns count of eval jobs created."""
+    try:
+        return service.start_eval(dataset)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
 @app.get("/stats")
 def stats():
     return retrieval.corpus_stats()

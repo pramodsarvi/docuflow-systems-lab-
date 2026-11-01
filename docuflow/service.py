@@ -59,3 +59,19 @@ def progress():
                                    count(*) FILTER (WHERE status='extracted') extracted,
                                    count(*) FILTER (WHERE status='indexed') indexed, count(*) total
                             FROM documents GROUP BY dataset ORDER BY dataset""").fetchall()
+
+
+def start_eval(dataset=None):
+    """Queue RAGAS evaluation jobs for recent queries. Evaluates queries that haven't been evaluated yet."""
+    with db.pool().connection() as c:
+        queries = c.execute("""SELECT q.id, q.question, d.dataset
+                              FROM queries q
+                              LEFT JOIN documents d ON q.question LIKE '%' || d.id || '%'
+                              WHERE (%s::text IS NULL OR d.dataset=%s)
+                                AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.stage='eval' AND j.payload->>'query_id' = q.id::text)
+                              ORDER BY q.created_at DESC LIMIT 100""", (dataset, dataset)).fetchall()
+        for q in queries:
+            ds = q["dataset"] or "default"
+            jobs.enqueue("eval", ds, {"query_id": q["id"]}, conn=c)
+    jobs.notify_after("eval", len(queries))
+    return {"eval_jobs_queued": len(queries)}

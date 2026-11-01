@@ -50,6 +50,13 @@ CREATE TABLE IF NOT EXISTS inflight (id text PRIMARY KEY, beat timestamptz NOT N
 CREATE TABLE IF NOT EXISTS queries (
   id bigserial PRIMARY KEY, question text, answer text, trace jsonb, seconds real,
   during_ingest boolean, created_at timestamptz DEFAULT now());
+CREATE TABLE IF NOT EXISTS model_latencies (
+  id bigserial PRIMARY KEY, stage text NOT NULL, endpoint text NOT NULL,
+  latency_ms int, in_flight_requests int, ts timestamptz DEFAULT now());
+CREATE INDEX IF NOT EXISTS model_latencies_recent ON model_latencies(stage, endpoint, ts DESC);
+CREATE TABLE IF NOT EXISTS eval_results (
+  id bigserial PRIMARY KEY, job_id bigint REFERENCES jobs(id) ON DELETE CASCADE,
+  dataset text NOT NULL, query_id bigint, metrics jsonb, ts timestamptz DEFAULT now());
 """
 
 _pool = None

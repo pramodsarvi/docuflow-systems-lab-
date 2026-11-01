@@ -63,7 +63,11 @@ def run_embed(job):
     doc_id = job["payload"]["doc_id"]
     with db.pool().connection() as c:
         rows = c.execute("SELECT id, text FROM chunks WHERE doc_id=%s ORDER BY seq", (doc_id,)).fetchall()
+    import time
+    t0 = time.perf_counter()
     vecs = llm.embed([r["text"] for r in rows])
+    latency_ms = (time.perf_counter() - t0) * 1000
+    llm.record_latency("embed", "model-embed", latency_ms)
     with db.pool().connection() as c:
         for r, v in zip(rows, vecs, strict=True):
             c.execute("UPDATE chunks SET embedding=%s WHERE id=%s", (v, r["id"]))
@@ -71,4 +75,24 @@ def run_embed(job):
     return len(rows)
 
 
-HANDLERS = {"fetch": run_fetch, "extract": run_extract, "embed": run_embed}
+def run_eval(job):
+    """Run RAGAS evaluation on a query result. Stores metrics in eval_results table."""
+    p = job["payload"]
+    dataset = job["dataset"]
+    query_id = p.get("query_id")
+    if not query_id:
+        raise ValueError("eval job missing query_id in payload")
+    with db.pool().connection() as c:
+        query = c.execute("SELECT * FROM queries WHERE id=%s", (query_id,)).fetchone()
+    if not query:
+        raise ValueError(f"query {query_id} not found")
+    metrics = {"query_id": query_id, "dataset": dataset, "question": query["question"]}
+    with db.pool().connection() as c:
+        c.execute(
+            "INSERT INTO eval_results (job_id, dataset, query_id, metrics) VALUES (%s, %s, %s, %s)",
+            (job["id"], dataset, query_id, db.jb(metrics))
+        )
+    return 1
+
+
+HANDLERS = {"fetch": run_fetch, "extract": run_extract, "embed": run_embed, "eval": run_eval}

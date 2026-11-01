@@ -131,3 +131,50 @@ spec:
       metadata:
         query: "SELECT count(*) FROM inflight WHERE beat > now() - interval '120 seconds'"
         targetQueryValue: "4"            # agent loops mostly wait on the LLM; ~4 concurrent per pod
+---
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata: {name: model-vlm-latency}
+spec:
+  scaleTargetRef: {name: model-vlm, kind: StatefulSet}
+  minReplicaCount: 1
+  maxReplicaCount: 8
+  pollingInterval: 15
+  cooldownPeriod: 300
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp: {stabilizationWindowSeconds: 0, policies: [{type: Pods, value: 2, periodSeconds: 15}]}
+        scaleDown: {stabilizationWindowSeconds: 120, policies: [{type: Pods, value: 1, periodSeconds: 60}]}
+  triggers:
+    - type: postgresql
+      name: vlm-p95-latency
+      authenticationRef: {name: docuflow-pg}
+      metadata:
+        query: "SELECT COALESCE(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY latency_ms), 0) FROM model_latencies WHERE stage='extract' AND endpoint='model-vlm' AND ts > now() - interval '2 minutes'"
+        targetQueryValue: "5000"      # scale up if p95 > 5 seconds
+        activationTargetQueryValue: "2000"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata: {name: model-embed-latency}
+spec:
+  scaleTargetRef: {name: model-embed, kind: StatefulSet}
+  minReplicaCount: 1
+  maxReplicaCount: 4
+  pollingInterval: 15
+  cooldownPeriod: 300
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp: {stabilizationWindowSeconds: 0, policies: [{type: Pods, value: 1, periodSeconds: 20}]}
+        scaleDown: {stabilizationWindowSeconds: 120, policies: [{type: Pods, value: 1, periodSeconds: 60}]}
+  triggers:
+    - type: postgresql
+      name: embed-p95-latency
+      authenticationRef: {name: docuflow-pg}
+      metadata:
+        query: "SELECT COALESCE(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY latency_ms), 0) FROM model_latencies WHERE stage='embed' AND endpoint='model-embed' AND ts > now() - interval '2 minutes'"
+        targetQueryValue: "3000"      # scale up if p95 > 3 seconds
+        activationTargetQueryValue: "1500"

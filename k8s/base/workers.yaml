@@ -97,3 +97,35 @@ spec:
           securityContext: {readOnlyRootFilesystem: true, allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
           volumeMounts: [{name: tmp, mountPath: /tmp}]
       volumes: [{name: tmp, emptyDir: {sizeLimit: 2Gi}}]
+---
+# ragas: RAGAS evaluation of query results (fixed pod count, never scales)
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: worker-ragas, labels: {app: worker-ragas}}
+spec:
+  replicas: 2  # Fixed: no KEDA, constant background work
+  revisionHistoryLimit: 5
+  selector: {matchLabels: {app: worker-ragas}}
+  template:
+    metadata:
+      labels: {app: worker-ragas, app.kubernetes.io/component: worker, docuflow-lane: ragas}
+      annotations: {prometheus.io/scrape: "true", prometheus.io/port: "9100", prometheus.io/path: /metrics}
+    spec:
+      serviceAccountName: docuflow
+      priorityClassName: docuflow-batch
+      terminationGracePeriodSeconds: 180
+      securityContext: {runAsNonRoot: true, runAsUser: 10001, runAsGroup: 10001, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: worker
+          image: docuflow
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "docuflow", "worker", "ragas"]
+          envFrom:
+            - configMapRef: {name: docuflow-config}
+            - secretRef: {name: docuflow-secrets}
+          ports: [{name: metrics, containerPort: 9100}]
+          livenessProbe: {httpGet: {path: /health, port: metrics}, initialDelaySeconds: 20, periodSeconds: 15, failureThreshold: 4}
+          resources: {requests: {cpu: 200m, memory: 512Mi}, limits: {memory: 1Gi}}
+          securityContext: {readOnlyRootFilesystem: true, allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+          volumeMounts: [{name: tmp, mountPath: /tmp}]
+      volumes: [{name: tmp, emptyDir: {sizeLimit: 2Gi}}]

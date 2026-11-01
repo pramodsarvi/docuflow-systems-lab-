@@ -11,7 +11,7 @@ import time
 import httpx
 import numpy as np
 
-from . import config
+from . import config, db
 
 # Model servers sit behind a Kubernetes Service, which balances per *connection*. With keep-alive, every worker stays
 # pinned to whichever replica it first reached, so a replica added by autoscaling gets almost no traffic (measured: one
@@ -28,6 +28,18 @@ QUERY_INSTRUCT = ("Instruct: Given a question about scanned documents (forms, le
 class ModelUnavailable(RuntimeError):
     """The model server could not be reached or was overloaded/failing (connection errors, timeouts, 429, 5xx) after
     quick retries. Not the page's fault: workers defer the job instead of spending its retries (see jobs.defer)."""
+
+
+def record_latency(stage, endpoint, latency_ms, in_flight_requests=None):
+    """Record model request latency for KEDA scaling decisions. Non-blocking (fire-and-forget)."""
+    try:
+        with db.pool().connection() as c:
+            c.execute(
+                "INSERT INTO model_latencies (stage, endpoint, latency_ms, in_flight_requests, ts) VALUES (%s, %s, %s, %s, now())",
+                (stage, endpoint, int(latency_ms), in_flight_requests)
+            )
+    except Exception as e:
+        print(f"[llm] failed to record latency: {e}", flush=True)
 
 
 _TRANSIENT = (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout, httpx.RemoteProtocolError, httpx.PoolTimeout)

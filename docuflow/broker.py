@@ -18,7 +18,7 @@ import time
 from . import config, db
 
 _local = threading.local()
-LANES = ("io", "vlm", "embed")
+LANES = ("io", "vlm", "embed", "ragas")
 
 
 def enabled():

@@ -42,6 +42,8 @@ def read_page(image_bytes, hint_lang=None):
     prompt = PROMPT + (f"\nThe page language is probably '{hint_lang}'." if hint_lang and hint_lang != "en" else "")
     text, _ = llm.chat([{"role": "user", "content": prompt}], model=config.VLM_MODEL, role="vlm", images=[image_bytes],
                        fmt=SCHEMA, max_tokens=config.VLM_MAX_TOKENS, num_ctx=12288)
+    latency_ms = (time.perf_counter() - t0) * 1000
+    llm.record_latency("extract", "model-vlm", latency_ms)
     try:
         regions = llm.parse_json(text).get("regions", [])
     except Exception as e:

@@ -11,8 +11,8 @@ import time
 
 from . import broker, config, db
 
-LANE_OF = {"fetch": "io", "extract": "vlm", "embed": "embed"}
-STAGE_PRIORITY = {"embed": 20, "extract": 10, "fetch": 0}   # downstream stages first, so documents finish and become queryable
+LANE_OF = {"fetch": "io", "extract": "vlm", "embed": "embed", "eval": "ragas"}
+STAGE_PRIORITY = {"embed": 20, "extract": 10, "fetch": 0, "eval": 0}   # downstream stages first, so documents finish and become queryable
 
 
 def enqueue(stage, dataset, payload, batch_id=None, priority=0, conn=None):
@@ -160,7 +160,7 @@ def snapshot():
         done = c.execute("""SELECT lane, count(*) n, avg(extract(epoch FROM finished_at - started_at)) avg_s
                             FROM jobs WHERE status='done' AND finished_at > now() - interval '5 minutes' GROUP BY lane""").fetchall()
         by_ds = c.execute("""SELECT dataset, status, count(*) n FROM jobs GROUP BY dataset, status""").fetchall()
-    lanes = {l: {"queued": 0, "running": 0, "done": 0, "dead": 0} for l in ("io", "vlm", "embed")}
+    lanes = {l: {"queued": 0, "running": 0, "done": 0, "dead": 0} for l in ("io", "vlm", "embed", "ragas")}
     for r in rows:
         lanes[r["lane"]][r["status"]] = r["n"]
     for r in done:

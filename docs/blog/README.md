@@ -39,6 +39,7 @@ What the stress tests showed:
 
 ## The parts
 
+0. [Introduction: What is DocuFlow?](00-introduction.md): High-level overview, the three pipelines, why it matters, tech stack
 1. [The system and why it scales on queues](01-system.md): architecture, the three workloads, why queue depth beats CPU
 2. [HPA and KEDA, precisely](02-hpa-and-keda.md): what KEDA adds to the HPA, the replica formula, activation,
    cooldown, multiple triggers

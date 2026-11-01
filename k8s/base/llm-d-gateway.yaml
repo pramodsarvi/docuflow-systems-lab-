@@ -1,0 +1,280 @@
+# Kubernetes Gateway API with llm-d for Intelligent LLM Routing
+# llm-d: Pod/container-aware routing managed by Kubernetes
+# NOT a proxy - K8s native resource management
+
+---
+# GatewayClass: Defines the controller (llm-d)
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: GatewayClass
+metadata:
+  name: llm-d
+spec:
+  controllerName: "llm.ai/llm-d"
+  description: "LLM-aware gateway for intelligent routing to vLLM pods"
+
+---
+# Gateway: Listens on port 8000, routes to backends
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: llm-gateway
+  namespace: default
+spec:
+  gatewayClassName: llm-d
+  listeners:
+  - name: http
+    port: 8000
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Same
+
+---
+# HTTPRoute for extract (model-vlm)
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: extract-route
+  namespace: default
+spec:
+  parentRefs:
+  - name: llm-gateway
+  hostnames:
+  - "extract.internal"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /v1/
+    backendRefs:
+    - name: model-vlm
+      port: 8000
+      weight: 100
+
+---
+# HTTPRoute for embed (model-embed)
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: embed-route
+  namespace: default
+spec:
+  parentRefs:
+  - name: llm-gateway
+  hostnames:
+  - "embed.internal"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /v1/
+    backendRefs:
+    - name: model-embed
+      port: 8001
+      weight: 100
+
+---
+# LLMServicePolicy: Configure llm-d intelligent routing behavior
+# This is the KEY resource that makes routing smart
+apiVersion: llm.ai/v1alpha1
+kind: LLMServicePolicy
+metadata:
+  name: extract-policy
+  namespace: default
+spec:
+  targetRef:
+    kind: Service
+    name: model-vlm
+
+  # Routing strategy: llm-d understands vLLM metrics
+  routing:
+    # Route based on:
+    strategy: "least_pending_requests"  # llm-d queries vLLM /metrics
+    metrics:
+      # What to measure on each pod
+      - type: "vllm_queue_depth"
+      - type: "vllm_kv_cache_utilization"
+      - type: "vllm_batch_utilization"
+
+    # Load shedding
+    shedding:
+      enabled: true
+      threshold: 95  # Shed requests if any metric > 95%
+      statusCode: 503  # Return 503 Service Unavailable
+
+  # Pod awareness
+  podAffinity:
+    # Prefer requests to pods with lower load
+    preferPodWithLowestQueue: true
+
+  # Fallback to round-robin if metrics unavailable
+  fallback:
+    strategy: "round_robin"
+
+  # Load balancing algorithm
+  loadBalancing:
+    algorithm: "least_pending_requests"
+    # vLLM-aware: considers batch slots, not just connections
+    considerBatchSlots: true
+    considerKVCacheUsage: true
+
+---
+# vLLMMonitor: Tells llm-d which metrics to watch
+apiVersion: llm.ai/v1alpha1
+kind: vLLMMonitor
+metadata:
+  name: vllm-metrics
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: model-vlm
+
+  metrics:
+  - name: queue_depth
+    path: /metrics
+    port: 8000
+    pollInterval: 5s
+
+  - name: kv_cache_utilization
+    path: /metrics
+    port: 8000
+
+  - name: batch_utilization
+    path: /metrics
+    port: 8000
+
+---
+# BackendTrafficPolicy: Configure how traffic reaches vLLM pods
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: BackendTrafficPolicy
+metadata:
+  name: llm-traffic
+  namespace: default
+spec:
+  targetRefs:
+  - group: ""
+    kind: Service
+    name: model-vlm
+  - group: ""
+    kind: Service
+    name: model-embed
+
+  # Load balancing
+  loadBalancer:
+    type: "ConsistentHash"
+    # llm-d: hash by request, not connection (so batches go together)
+    consistentHashPolicy:
+      type: "SourceIP"
+
+  # Health checks
+  healthChecks:
+  - type: HTTP
+    port: 8000
+    path: /health
+    interval: 10s
+    timeout: 5s
+    unhealthyThreshold: 3
+    healthyThreshold: 2
+
+---
+# ServiceExport: Make services available to Gateway API
+apiVersion: net.gke.io/v1
+kind: ServiceExport
+metadata:
+  name: model-vlm
+  namespace: default
+
+---
+apiVersion: net.gke.io/v1
+kind: ServiceExport
+metadata:
+  name: model-embed
+  namespace: default
+
+---
+# Note: Worker configuration changes
+#
+# Instead of calling vLLM directly:
+#   POST http://model-vlm:8000/v1/chat/completions
+#
+# With Gateway API + llm-d:
+#   POST http://extract.internal/v1/chat/completions  (for extract)
+#   POST http://embed.internal/v1/chat/completions    (for embed)
+#
+# Or use the Gateway service endpoint:
+#   POST http://llm-gateway:8000/v1/chat/completions
+#   (llm-d routes to correct backend based on Host header)
+#
+# llm-d handles:
+# - Querying /metrics from each vLLM pod
+# - Calculating load scores
+# - Routing to least-busy pod
+# - Health checking
+# - Load shedding (503 if overloaded)
+# - Service discovery (as pods scale up/down)
+
+---
+# StatefulSet: vLLM with metrics endpoint
+# (update your existing model-vlm StatefulSet with metrics)
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: model-vlm
+spec:
+  serviceName: model-vlm
+  replicas: 2
+  template:
+    spec:
+      containers:
+      - name: vllm
+        image: vllm/vllm-openai:latest
+        args:
+        - --served-model-name=Qwen2.5-VL-3B
+        - --max-model-len=2048
+        - --gpu-memory-utilization=0.95
+        # IMPORTANT: Enable metrics for llm-d
+        - --enable-metrics=true
+        - --metrics-port=8000
+
+        ports:
+        - containerPort: 8000
+          name: http
+
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 10
+
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 5
+
+---
+# KEDA still scales based on latency
+# But now vLLM pods are discovered by Gateway API
+# llm-d handles request routing to discovered pods
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: model-vlm-latency
+spec:
+  scaleTargetRef:
+    name: model-vlm
+    kind: StatefulSet
+  minReplicaCount: 1
+  maxReplicaCount: 8
+  triggers:
+  - type: postgresql
+    metadata:
+      query: |
+        SELECT PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY latency_ms)
+        FROM model_latencies
+        WHERE stage='extract' AND endpoint='model-vlm'
+        AND ts > now() - interval '2 minutes'
+      targetQueryValue: "5000"

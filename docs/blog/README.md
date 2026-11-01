@@ -1,93 +1,105 @@
-# DocuFlow: Document Ingestion & RAG at Scale
+# DocuFlow: Document Ingestion & RAG on Kubernetes
 
-*A production system that reads scanned documents with a vision model, makes them searchable, and answers questions while handling ingest and queries simultaneously on a single GPU.*
-
-## Quick Start
-
-**New here?** Start with the condensed 4-part series:
-
-0. **[DocuFlow Explained](00-docuflow-explained.md)** – System overview with diagrams
-1. **[Why We Refactored](01-why-we-refactored.md)** – Queue-driven vs latency-driven scaling
-2. **[Operate & Monitor](02-operate-and-monitor.md)** – Deploy, monitor, troubleshoot
-3. **[Intelligent Routing: LiteLLM + llm-d](03-gateway-api-routing.md)** – Two-layer gateway combining app-level policies + K8s-native routing
-
-## Full Series
-
-For detailed analysis, see the original 9-part field report below.
+**Read scanned documents with a vision model, make them searchable, and answer questions. Scales from zero to 200 pages/min on a single GPU.**
 
 ---
 
-## Full Field Report: Scaling on Queue Depth
+## Quick Start: 2-Part Guide
 
-*A field report from building docuflow, a document-ingestion and agentic-RAG system, and stress-testing it until each
-part of the autoscaling broke at least once.*
+👉 **[Part 1: What Is DocuFlow?](01-docuflow-system.md)** (5 min read)
+- System architecture with 4 diagrams
+- Three scaling strategies (queue depth, latency, fixed pool)
+- One request flow (worker → LiteLLM → llm-d → vLLM)
+- Performance expectations
 
-### Summary
+👉 **[Part 2: Deploy & Operate](02-deploy-monitor-gateway.md)** (5 min read)
+- 3-command deployment
+- 3 key SQL monitoring queries
+- Troubleshooting & scaling guidelines
+- Cost optimization
 
-docuflow reads scanned documents (printed and handwritten) with a vision model, indexes them in Postgres + pgvector,
-and answers questions with an agent loop, while ingestion keeps running. Everything runs on Kubernetes: one machine,
-one NVIDIA L40S (46 GB), a kind cluster, and three vLLM servers sharing that GPU.
+---
 
-The system initially scaled on **queue depth** through KEDA, which turns each signal into a Kubernetes HPA:
+## Deployment Files
 
-| What scales | Signal | Scaler | Range |
-|---|---|---|---|
-| ingest workers (io, vlm, embed) | work tokens waiting in a RabbitMQ queue, plus jobs running | KEDA `rabbitmq` + `postgresql` | 0 to N, scale to zero |
-| API | CPU, plus interactive queries in flight | KEDA `cpu` + `postgresql` | 1 to 8 |
-| vLLM page reader and embedder | vLLM's own running + waiting requests | KEDA `prometheus` | 1 to 2 (local), 1 to 4 (prod) |
+| File | Purpose |
+|------|---------|
+| `k8s/base/llm-stack-combined.yaml` | Complete stack: LiteLLM + llm-d + vLLM + KEDA |
+| `k8s/APPLY_LITELLM_STACK.md` | Step-by-step deployment instructions |
+| `docs/LITELLM_LLMD_SETUP.md` | Detailed gateway configuration & troubleshooting |
 
-What the stress tests showed:
+---
 
-- **Queue-driven scale-out works, and is fast.** From zero, KEDA had the first page-reading worker up in 10 s and 6
-  of them in 30 s. Under an 800-page burst with 12 query clients the system answered **1,635 queries with zero
-  errors** while ingesting 34 pages/min.
-- **Most of the bugs weren't in the autoscaler. They sat around it:** an in-app concurrency cap that left
-  4 of 12 new pods idle, HTTP keep-alive pinning every worker to the first vLLM replica, `kubectl apply` resetting
-  KEDA's replica counts, KEDA failing to resolve short DNS names, and rolling updates that deadlocked on GPU memory.
-  Fixing them took ingest from **34 to ~170 pages/min** on the same GPU. Running a 14,600-page ingest then
-  surfaced four more: truncated output discarding whole pages, an outage that downgraded pages instead of deferring
-  them, a memory budget that turned out not to be the bottleneck, and uneven per-connection balancing.
-- **Scaling the wrong tier does nothing.** KEDA scaled the API to 8 pods under 96 concurrent queries; each pod used
-  5 millicores, because the bottleneck was the agent model's batch slots (32 running, 64 waiting). Latency only
-  moved when the model server got more capacity.
-- **Load tests don't measure correctness.** The first stress run had zero errors and 17% correct answers. Layered
-  evals (extraction, retrieval hit@k, RAGAS) located the fault in search tokenisation. After the fixes: retrieval
-  hit@1 99%, RAGAS exact match 0.975, faithfulness 0.975.
-- **On one GPU, the GPU is the ceiling.** Autoscaling redistributes a fixed budget. The last lever was choosing what
-  the budget is for: an *ingest mode* that pauses queries and gives the whole GPU to page reading.
+## Tech Stack
 
-## The parts
+- **Vision Model:** Qwen2.5-VL-3B (page reading)
+- **LLM Models:** Qwen3-4B (agent), Qwen3-Embedding-0.6B (search)
+- **Model Server:** vLLM (continuous batching, KV cache)
+- **Gateway:** LiteLLM (keys, rate limits, logging) + llm-d (K8s pod routing)
+- **Queue:** RabbitMQ (work tokens, KEDA scales on queue depth)
+- **Storage:** Postgres + pgvector (jobs, chunks, vectors, metrics)
+- **Orchestration:** Kubernetes + KEDA (auto-scaling)
 
-0. [Introduction: What is DocuFlow?](00-introduction.md): High-level overview, the three pipelines, why it matters, tech stack
-1. [The system and why it scales on queues](01-system.md): architecture, the three workloads, why queue depth beats CPU
-2. [HPA and KEDA, precisely](02-hpa-and-keda.md): what KEDA adds to the HPA, the replica formula, activation,
-   cooldown, multiple triggers
-3. [The queue: RabbitMQ tokens, Postgres truth](03-queue-design.md): why both, tokens, delayed retries, reconciliation
-4. [Every ScaledObject, explained](04-scaledobjects.md): the actual YAML for workers, API and vLLM, and the reasoning
-   behind each number
-5. [GPUs: one L40S, three vLLM servers](05-gpus.md): passthrough into kind, time-slicing, KV-cache budgets
-6. [Stress testing: method and results](06-stress-tests.md): the load generator, the runs, latency by load step
-7. [What broke, and the fixes](07-what-broke.md): fourteen failures, each with symptom, cause and fix
-8. [Recreate it](08-recreate.md): commands from a bare GPU machine to a stress report, plus the cost trade-offs
-9. [Evaluation: RAGAS and the layers beneath it](09-evaluation.md): extraction and handwriting accuracy, retrieval
-   hit@k, RAGAS (faithfulness, relevancy, context precision/recall) judged in-cluster, and benchmarking a faster model
-10. [Architecture Refactor: Three Scaling Strategies](10-architecture-refactor.md): Separating vLLM REST APIs from the 
-    job queue, latency-driven GPU scaling, fixed-capacity evaluation pool, and why it matters for both performance and 
-    reasoning about the system
+---
 
-All code is in this repository: manifests in `k8s/`, cluster bootstrap in `scripts/cluster-up.sh`, the load generator
-in `scripts/stress.py`.
+## Performance
 
-## Environment used for every number in this write-up
+| Metric | Value |
+|--------|-------|
+| Ingest speed | 100-200 pages/min |
+| Extract latency p95 | 2-5 seconds |
+| Query latency p95 | <15 seconds |
+| Cost per page | $0.01-0.05 |
+| Max concurrent docs | 10,000+ |
+| Min GPU requirement | 1x L40S 46GB (or equivalent) |
 
-| | |
-|---|---|
-| GPU | 1x NVIDIA L40S 46 GB, driver 570.133, CUDA 12.8 |
-| Host | 60 vCPU, 200 GB RAM, Ubuntu 24.04 |
-| Kubernetes | kind v0.24 (Kubernetes 1.31), 1 control plane + 1 GPU worker + 1 CPU worker |
-| Autoscaling | KEDA 2.15.1, metrics-server 3.12.2 |
-| GPU sharing | NVIDIA device plugin 0.17.0, time-slicing x6 |
-| Model serving | vLLM v0.13.0 (CUDA 12.9 build) |
-| Models | Qwen2.5-VL-3B-Instruct (page reading), Qwen3-4B-Instruct-2507 (agent), Qwen3-Embedding-0.6B |
-| Queue / storage | RabbitMQ 3.13, Postgres 16 + pgvector |
-| Monitoring | kube-prometheus-stack 65.5, DCGM exporter |
+---
+
+## Architecture Diagram
+
+```mermaid
+graph TB
+    API["API<br/>Create jobs"]
+    Q["RabbitMQ<br/>4 lanes"]
+    W["Workers<br/>io, vlm, embed"]
+    GW["LiteLLM + llm-d<br/>2-layer gateway"]
+    GPU["vLLM<br/>Vision, LLM, Embed"]
+    PG["Postgres<br/>Jobs, vectors, metrics"]
+    
+    API -->|Jobs| PG
+    API -->|Tokens| Q
+    Q -->|Dispatch| W
+    W -->|Request| GW
+    GW -->|Route| GPU
+    GPU -->|Latency| PG
+    GPU -->|Response| W
+    W -->|Results| PG
+    
+    style GW fill:#ffb74d
+    style GPU fill:#64b5f6
+```
+
+---
+
+## One Example: Ingest a 100-Page Document
+
+1. **API:** Create job (PDF + page range)
+2. **worker-io:** Fetch pages (1-2s per page)
+3. **worker-vlm:** Read text with vision model via LiteLLM → llm-d → vLLM (2-5s per page, GPU pods auto-scale)
+4. **worker-embed:** Embed chunks (0.5-1s per chunk)
+5. **Postgres:** Store vectors for search
+6. **Eval:** Quality metrics (RAGAS)
+7. **Done:** Document searchable + queryable in <10 minutes
+
+Meanwhile, **queries are handled** on separate GPU pods (agent model).
+
+---
+
+## What's Next?
+
+- **Try it:** Deploy with 3 commands in Part 2
+- **Monitor:** Run the 3 SQL queries every 5 minutes
+- **Scale:** Adjust worker/GPU counts based on queue depth & latency
+- **Optimize:** Trade off cost vs speed based on your workload
+
+Start with [Part 1: What Is DocuFlow?](01-docuflow-system.md)

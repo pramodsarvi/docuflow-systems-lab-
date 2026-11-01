@@ -2,8 +2,6 @@
 
 DocuFlow reads scanned documents with a vision model, indexes them in Postgres + pgvector, and answers questions with a small agent loop. Ingest, query and evaluation share the GPUs, and each one scales on its own signal.
 
-> **Status:** the core platform (`k8s/base` + `k8s/components` + overlays) is what CI and the stress runs exercise. The LiteLLM + llm-d gateway (`k8s/base/llm-stack-combined.yaml`) is **experimental**. It is not in the kustomization and it has not been benchmarked. See [Experimental: LLM gateway](#experimental-llm-gateway).
-
 ## Contents
 
 1. [Architecture](#architecture)
@@ -13,7 +11,7 @@ DocuFlow reads scanned documents with a vision model, indexes them in Postgres +
 5. [Deploy](#deploy)
 6. [Monitor](#monitor)
 7. [Troubleshoot](#troubleshoot)
-8. [Experimental: LLM gateway](#experimental-llm-gateway)
+8. [Adding an LLM gateway](#adding-an-llm-gateway)
 9. [Files](#files)
 
 ---
@@ -59,7 +57,7 @@ graph TB
 
 Postgres is the source of truth for job state. A RabbitMQ message is only a *token* that says "a runnable job exists in this lane". Workers claim the real job row in Postgres. KEDA reads the queue length, and `broker.reconcile()` tops the queue up again if tokens are lost.
 
-Every model call goes through `docuflow/llm.py`. It looks up the endpoint for the role in `config.ENDPOINTS` and records each call's latency in `model_latencies`. vLLM never writes to Postgres.
+Every model call goes through `docuflow/llm.py`, which looks up the endpoint for the role in `config.ENDPOINTS`. Page-read and embed calls also write their latency to `model_latencies`; the gc CronJob keeps the last 24 h (`GC_LATENCIES_HOURS`). vLLM never writes to Postgres.
 
 ### One page, end to end
 
@@ -89,9 +87,11 @@ sequenceDiagram
 |---|---|---|
 | **Ingest** | `fetch` (worker-io) → `extract` (worker-vlm → model-vlm) → `embed` (worker-embed → model-embed) → `chunks` | `POST` ingest via API |
 | **Query** | api → vector search in pgvector → agent loop on model-llm (can call model-vlm to look at a page) → answer + sources | `POST` query |
-| **Eval** | `POST /eval` → `service.start_eval()` queues one `eval` job per query that has not been evaluated yet → worker-ragas → `eval_results` | manual |
+| **Eval** | `POST /eval` → one `eval` job per answered query not yet evaluated → worker-ragas scores it → `eval_results` | manual |
 
-> `pipeline.run_eval()` is currently a **stub**. It only stores query metadata in `eval_results` and does not compute RAGAS scores yet. Offline RAGAS reports are in `evals/`.
+worker-ragas scores each query with RAGAS **faithfulness** and **answer relevancy**. These metrics need no reference answer. The judge is the agent model, and the contexts are the observations the agent actually saw, taken from the query trace. Queries with no retrieved context are stored as `{"skipped": ...}`. The metrics that need reference answers (context precision and recall) stay in the offline `evals/ragas_eval.py`.
+
+RAGAS is installed in the image by default (`WITH_EVAL=1` in the Dockerfile). To build a slimmer image without it, pass `--build-arg WITH_EVAL=0`.
 
 ---
 
@@ -165,7 +165,7 @@ WHERE status = 'done' AND finished_at > now() - interval '5 minutes'
 GROUP BY stage;
 ```
 
-**Model latency p95 (written by `llm.py`)**
+**Model latency p95 (extract and embed calls)**
 ```sql
 SELECT stage, endpoint,
        percentile_cont(0.95) WITHIN GROUP (ORDER BY latency_ms) AS p95_ms,
@@ -210,25 +210,15 @@ If the queue is empty but `jobs` still has `queued` rows, check whether the lane
 
 ---
 
-## Experimental: LLM gateway
+## Adding an LLM gateway
 
-`k8s/base/llm-stack-combined.yaml` sketches a two-layer gateway:
+The app talks to each model role (`vlm`, `llm`, `embed`) through an OpenAI-compatible base URL and key (`VLM_BASE_URL`, `VLM_API_KEY`, … in `config.py`). To put a gateway such as LiteLLM, or llm-d's Gateway API Inference Extension (`InferencePool` + endpoint picker), in front of the vLLM servers:
 
-```mermaid
-graph LR
-    W[worker] --> L[LiteLLM proxy :4000<br/>keys, rate limits, spend]
-    L --> G[llm-d / Gateway API<br/>KV-cache & queue-aware pod picking]
-    G --> P[vLLM pods]
-```
+1. Deploy the gateway in the `docuflow` namespace as a kustomize component.
+2. Patch the `*_BASE_URL` values in that component, the same way `k8s/components/models/kustomization.yaml` does today.
+3. Point the model names at whatever the gateway exposes.
 
-Read these known gaps before you use it:
-
-- It targets the `default` namespace and is **not** included in `k8s/base/kustomization.yaml`. The rest of the platform runs in `docuflow`.
-- The `LLMServicePolicy` and `vLLMMonitor` kinds are not upstream llm-d APIs. Upstream llm-d builds on the Gateway API Inference Extension (`InferencePool` plus an endpoint-picker). Rewrite the manifest against those APIs before you rely on it.
-- Its model names (`Qwen2.5-VL-3B`, …) don't match the names the existing vLLM components serve (`vlm-model`, `standard-model`, `embed-model`).
-- The app needs only config changes to switch over (`LLM_BACKEND`, endpoint URLs and keys in `config.py`). Make that change in an overlay rather than with `kubectl patch`, so the change stays in git.
-
-For the setup notes, see `docs/LITELLM_LLMD_SETUP.md` and `k8s/APPLY_LITELLM_STACK.md`.
+No code changes are needed. A previous draft gateway manifest was removed because it used APIs that don't exist upstream.
 
 ---
 
@@ -239,7 +229,7 @@ For the setup notes, see `docs/LITELLM_LLMD_SETUP.md` and `k8s/APPLY_LITELLM_STA
 | `docuflow/config.py` | Runtime config (env vars, `ENDPOINTS` per model role) |
 | `docuflow/llm.py` | Model client and latency recording |
 | `docuflow/broker.py` | RabbitMQ tokens, lanes, `reconcile()` |
-| `docuflow/pipeline.py` | Stage handlers: fetch, extract, embed, eval |
+| `docuflow/pipeline.py` | Stage handlers: fetch, extract, embed, eval (RAGAS) |
 | `docuflow/db.py` | Schema |
 | `k8s/base/` | Namespace-neutral core (kustomize) |
 | `k8s/components/models/` | vLLM model servers and their autoscaling |

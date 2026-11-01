@@ -1,4 +1,6 @@
 """Stage handlers: fetch -> extract -> embed. Each is idempotent so retries and re-ingests are safe."""
+import time
+
 from . import chunk, config, db, extract, jobs, llm, sources
 
 
@@ -63,7 +65,6 @@ def run_embed(job):
     doc_id = job["payload"]["doc_id"]
     with db.pool().connection() as c:
         rows = c.execute("SELECT id, text FROM chunks WHERE doc_id=%s ORDER BY seq", (doc_id,)).fetchall()
-    import time
     t0 = time.perf_counter()
     vecs = llm.embed([r["text"] for r in rows])
     latency_ms = (time.perf_counter() - t0) * 1000
@@ -75,23 +76,63 @@ def run_embed(job):
     return len(rows)
 
 
+_CONTEXT_ACTIONS = ("search", "get_page", "read_page_image")
+
+
+def _ragas_scorer():
+    """Reference-free RAGAS metrics, judged by the agent model and embedded by the embed model. Built once per process.
+    RAGAS (and LangChain) are only in images built with requirements-eval.txt; see the Dockerfile."""
+    global _SCORER
+    if _SCORER is None:
+        from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+        from ragas import EvaluationDataset, RunConfig, evaluate
+        from ragas.embeddings import LangchainEmbeddingsWrapper
+        from ragas.llms import LangchainLLMWrapper
+        from ragas.metrics import Faithfulness, ResponseRelevancy
+        llm_url, llm_key = config.ENDPOINTS["llm"]
+        emb_url, emb_key = config.ENDPOINTS["embed"]
+        if not llm_url or not emb_url:
+            raise RuntimeError("eval needs LLM_BASE_URL and EMBED_BASE_URL (OpenAI-compatible model servers)")
+        judge = LangchainLLMWrapper(ChatOpenAI(base_url=llm_url, api_key=llm_key or "none", model=config.LLM_MODEL,
+                                               temperature=0, max_tokens=2048, timeout=300))
+        emb = LangchainEmbeddingsWrapper(OpenAIEmbeddings(base_url=emb_url, api_key=emb_key or "none",
+                                                          model=config.EMBED_MODEL, check_embedding_ctx_length=False))
+        metrics = [Faithfulness(), ResponseRelevancy()]
+
+        def score(question, answer, contexts):
+            ds = EvaluationDataset.from_list([{"user_input": question, "response": answer,
+                                               "retrieved_contexts": contexts}])
+            res = evaluate(ds, metrics=metrics, llm=judge, embeddings=emb, show_progress=False,
+                           run_config=RunConfig(max_workers=1, timeout=300, max_retries=3), raise_exceptions=True)
+            row = res.to_pandas().iloc[0]
+            return {m.name: (None if row.get(m.name) != row.get(m.name) else round(float(row[m.name]), 3))
+                    for m in metrics}
+        _SCORER = score
+    return _SCORER
+
+
+_SCORER = None
+
+
 def run_eval(job):
-    """Run RAGAS evaluation on a query result. Stores metrics in eval_results table."""
-    p = job["payload"]
-    dataset = job["dataset"]
-    query_id = p.get("query_id")
+    """Score one answered query with RAGAS (faithfulness, answer relevancy) and store the result in eval_results.
+    Contexts are the observations the agent actually saw, taken from the query trace."""
+    query_id = job["payload"].get("query_id")
     if not query_id:
         raise ValueError("eval job missing query_id in payload")
     with db.pool().connection() as c:
-        query = c.execute("SELECT * FROM queries WHERE id=%s", (query_id,)).fetchone()
-    if not query:
-        raise ValueError(f"query {query_id} not found")
-    metrics = {"query_id": query_id, "dataset": dataset, "question": query["question"]}
+        q = c.execute("SELECT question, answer, trace FROM queries WHERE id=%s", (query_id,)).fetchone()
+    if not q:
+        return 0   # query was garbage-collected; nothing to score
+    contexts = [t["observation"][:3000] for t in (q["trace"] or [])
+                if t.get("action") in _CONTEXT_ACTIONS and t.get("observation") and t["observation"] != "No results."]
+    if not q["answer"] or not contexts:
+        scores = {"skipped": "no answer" if not q["answer"] else "no retrieved context"}
+    else:
+        scores = _ragas_scorer()(q["question"], q["answer"], contexts)
     with db.pool().connection() as c:
-        c.execute(
-            "INSERT INTO eval_results (job_id, dataset, query_id, metrics) VALUES (%s, %s, %s, %s)",
-            (job["id"], dataset, query_id, db.jb(metrics))
-        )
+        c.execute("INSERT INTO eval_results (job_id, dataset, query_id, metrics) VALUES (%s, %s, %s, %s)",
+                  (job["id"], job["dataset"], query_id, db.jb(scores)))
     return 1
 
 

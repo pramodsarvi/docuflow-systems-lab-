@@ -3,8 +3,11 @@
 FROM python:3.12-slim AS build
 ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
 WORKDIR /build
-COPY requirements.txt .
-RUN python -m venv /opt/venv && /opt/venv/bin/pip install -r requirements.txt
+COPY requirements.txt requirements-eval.txt ./
+# WITH_EVAL=1 adds RAGAS + LangChain for worker-ragas (~300 MB). Build with WITH_EVAL=0 for a slimmer image without it.
+ARG WITH_EVAL=1
+RUN python -m venv /opt/venv && /opt/venv/bin/pip install -r requirements.txt \
+    && if [ "$WITH_EVAL" = "1" ]; then /opt/venv/bin/pip install -r requirements-eval.txt; fi
 
 FROM python:3.12-slim
 ARG VERSION=dev

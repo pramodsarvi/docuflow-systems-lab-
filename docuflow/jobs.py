@@ -142,7 +142,9 @@ def gc(done_days=None, query_days=None):
         j = c.execute("DELETE FROM jobs WHERE status='done' AND finished_at < now() - make_interval(days => %s)", (done_days,)).rowcount
         q = c.execute("DELETE FROM queries WHERE created_at < now() - make_interval(days => %s)", (query_days,)).rowcount
         i = c.execute("DELETE FROM inflight WHERE beat < now() - interval '1 hour'").rowcount
-    return {"jobs_deleted": j, "queries_deleted": q, "stale_inflight_deleted": i}
+        m = c.execute("DELETE FROM model_latencies WHERE ts < now() - make_interval(hours => %s)",
+                      (config.GC_LATENCIES_HOURS,)).rowcount
+    return {"jobs_deleted": j, "queries_deleted": q, "stale_inflight_deleted": i, "latencies_deleted": m}
 
 
 def retry_dead(dataset=None):

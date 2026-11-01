@@ -55,8 +55,9 @@ CREATE TABLE IF NOT EXISTS model_latencies (
   latency_ms int, in_flight_requests int, ts timestamptz DEFAULT now());
 CREATE INDEX IF NOT EXISTS model_latencies_recent ON model_latencies(stage, endpoint, ts DESC);
 CREATE TABLE IF NOT EXISTS eval_results (
-  id bigserial PRIMARY KEY, job_id bigint REFERENCES jobs(id) ON DELETE CASCADE,
+  id bigserial PRIMARY KEY, job_id bigint,   -- no FK: gc deletes finished jobs, the scores must outlive them
   dataset text NOT NULL, query_id bigint, metrics jsonb, ts timestamptz DEFAULT now());
+ALTER TABLE eval_results DROP CONSTRAINT IF EXISTS eval_results_job_id_fkey;
 """
 
 _pool = None
@@ -102,7 +103,7 @@ def _migrate(c):
 
 def reset():
     with pool().connection() as c:
-        c.execute("TRUNCATE chunks, extractions, jobs, batches, documents, queries, inflight, control RESTART IDENTITY CASCADE")
+        c.execute("TRUNCATE chunks, extractions, jobs, batches, documents, queries, inflight, control, model_latencies, eval_results RESTART IDENTITY CASCADE")
 
 
 def jb(x):

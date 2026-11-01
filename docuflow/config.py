@@ -22,9 +22,9 @@ EMBED_DIM = 1024
 
 # Worker processes started per lane (upper bound) and the live default for how many may run at once.
 LANE_PROCS = {"io": int(os.environ.get("PROCS_IO", 2)), "vlm": int(os.environ.get("PROCS_VLM", 2)),
-              "embed": int(os.environ.get("PROCS_EMBED", 1))}
+              "embed": int(os.environ.get("PROCS_EMBED", 1)), "ragas": int(os.environ.get("PROCS_RAGAS", 1))}
 LANE_LIMIT_DEFAULT = {"io": int(os.environ.get("LIMIT_IO", 2)), "vlm": int(os.environ.get("LIMIT_VLM", os.environ.get("VLM_CONCURRENCY", 1))),
-                      "embed": int(os.environ.get("LIMIT_EMBED", 1))}   # on Kubernetes the pod count is the real limit, so set these high
+                      "embed": int(os.environ.get("LIMIT_EMBED", 1)), "ragas": int(os.environ.get("LIMIT_RAGAS", 1))}   # on Kubernetes the pod count is the real limit, so set these high
 PER_DATASET_CAP = int(os.environ.get("PER_DATASET_CAP", 1))     # max running jobs per dataset per lane (vlm)
 YIELD_TO_QUERIES = os.environ.get("YIELD_TO_QUERIES", "1") == "1"
 LEASE_SECONDS = int(os.environ.get("LEASE_SECONDS", 900))
@@ -42,6 +42,7 @@ WORKER_METRICS_PORT = int(os.environ.get("WORKER_METRICS_PORT", 9100))   # 0 dis
 # Retention (`python -m docuflow gc`, run by a CronJob on Kubernetes)
 GC_DONE_JOBS_DAYS = int(os.environ.get("GC_DONE_JOBS_DAYS", 7))
 GC_QUERIES_DAYS = int(os.environ.get("GC_QUERIES_DAYS", 30))
+GC_LATENCIES_HOURS = int(os.environ.get("GC_LATENCIES_HOURS", 24))   # model_latencies is only read over short windows
 
 DATASETS = {
     # name: (hf repo, hf config, split, priority)

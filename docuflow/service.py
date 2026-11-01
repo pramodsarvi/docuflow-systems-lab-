@@ -61,17 +61,17 @@ def progress():
                             FROM documents GROUP BY dataset ORDER BY dataset""").fetchall()
 
 
-def start_eval(dataset=None):
-    """Queue RAGAS evaluation jobs for recent queries. Evaluates queries that haven't been evaluated yet."""
+def start_eval(dataset=None, limit=100):
+    """Queue a RAGAS job for each recent query that has no eval job yet. Queries are not tied to a dataset, so
+    `dataset` is only a label on the jobs and results (default "queries")."""
+    ds = dataset or "queries"
     with db.pool().connection() as c:
-        queries = c.execute("""SELECT q.id, q.question, d.dataset
-                              FROM queries q
-                              LEFT JOIN documents d ON q.question LIKE '%' || d.id || '%'
-                              WHERE (%s::text IS NULL OR d.dataset=%s)
-                                AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.stage='eval' AND j.payload->>'query_id' = q.id::text)
-                              ORDER BY q.created_at DESC LIMIT 100""", (dataset, dataset)).fetchall()
-        for q in queries:
-            ds = q["dataset"] or "default"
-            jobs.enqueue("eval", ds, {"query_id": q["id"]}, conn=c)
-    jobs.notify_after("eval", len(queries))
-    return {"eval_jobs_queued": len(queries)}
+        rows = c.execute("""SELECT q.id FROM queries q
+                            WHERE q.answer IS NOT NULL
+                              AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.stage='eval' AND j.payload->>'query_id' = q.id::text)
+                              AND NOT EXISTS (SELECT 1 FROM eval_results e WHERE e.query_id = q.id)
+                            ORDER BY q.created_at DESC LIMIT %s""", (min(int(limit), 1000),)).fetchall()
+        for r in rows:
+            jobs.enqueue("eval", ds, {"query_id": r["id"]}, conn=c)
+    jobs.notify_after("eval", len(rows))
+    return {"eval_jobs_queued": len(rows)}

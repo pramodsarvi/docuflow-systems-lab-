@@ -24,7 +24,10 @@ def test_gc_removes_old_done_jobs_and_queries_only():
         c.execute("UPDATE jobs SET status='done', finished_at=now() - interval '30 days' WHERE id=1")
         c.execute("UPDATE jobs SET status='dead', finished_at=now() - interval '30 days' WHERE id=2")
         c.execute("INSERT INTO queries (question, created_at) VALUES ('old', now() - interval '90 days'), ('new', now())")
-    assert jobs.gc(done_days=7, query_days=30) == {"jobs_deleted": 1, "queries_deleted": 1, "stale_inflight_deleted": 0}
+        c.execute("INSERT INTO model_latencies (stage, endpoint, latency_ms, ts) "
+                  "VALUES ('extract', 'model-vlm', 10, now() - interval '3 days'), ('extract', 'model-vlm', 10, now())")
+    assert jobs.gc(done_days=7, query_days=30) == {"jobs_deleted": 1, "queries_deleted": 1, "stale_inflight_deleted": 0,
+                                                   "latencies_deleted": 1}
     with db.pool().connection() as c:
         assert c.execute("SELECT count(*) n FROM jobs").fetchone()["n"] == 2   # dead and queued are kept
 
@@ -168,3 +171,46 @@ def test_reread_fallbacks_queues_vlm_reads():
     with db.pool().connection() as c:
         p = c.execute("SELECT payload FROM jobs WHERE stage='extract'").fetchone()["payload"]
     assert p == {"doc_id": "f/1", "mode": "vlm", "reread": True}
+
+
+def _answered_query(trace):
+    with db.pool().connection() as c:
+        return c.execute("INSERT INTO queries (question, answer, trace) VALUES ('q?', 'a', %s) RETURNING id",
+                         (db.jb(trace),)).fetchone()["id"]
+
+
+def test_start_eval_queues_each_answered_query_once():
+    from docuflow import service
+    qid = _answered_query([])
+    with db.pool().connection() as c:
+        c.execute("INSERT INTO queries (question) VALUES ('unanswered')")
+    assert service.start_eval() == {"eval_jobs_queued": 1}
+    assert service.start_eval() == {"eval_jobs_queued": 0}          # already queued
+    j = jobs.claim("ragas", "t")
+    assert j["stage"] == "eval" and j["payload"]["query_id"] == qid
+
+
+def test_run_eval_scores_with_trace_contexts_and_survives_job_gc(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(pipeline, "_ragas_scorer", lambda: lambda q, a, ctx: seen.update(ctx=ctx) or {"faithfulness": 1.0})
+    qid = _answered_query([{"action": "search", "observation": "page text"}, {"action": "search", "observation": "No results."},
+                           {"action": "answer"}])
+    from docuflow import service
+    service.start_eval()
+    j = jobs.claim("ragas", "t")
+    assert pipeline.run_eval(j) == 1 and seen["ctx"] == ["page text"]
+    with db.pool().connection() as c:
+        c.execute("UPDATE jobs SET status='done', finished_at=now() - interval '30 days'")
+    jobs.gc(done_days=7)
+    with db.pool().connection() as c:
+        r = c.execute("SELECT query_id, metrics FROM eval_results").fetchone()
+    assert r["query_id"] == qid and r["metrics"] == {"faithfulness": 1.0}
+
+
+def test_run_eval_skips_queries_without_context():
+    from docuflow import service
+    _answered_query([{"action": "answer"}])
+    service.start_eval()
+    assert pipeline.run_eval(jobs.claim("ragas", "t")) == 1
+    with db.pool().connection() as c:
+        assert c.execute("SELECT metrics FROM eval_results").fetchone()["metrics"] == {"skipped": "no retrieved context"}

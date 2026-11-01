@@ -51,6 +51,9 @@ What the stress tests showed:
 8. [Recreate it](08-recreate.md): commands from a bare GPU machine to a stress report, plus the cost trade-offs
 9. [Evaluation: RAGAS and the layers beneath it](09-evaluation.md): extraction and handwriting accuracy, retrieval
    hit@k, RAGAS (faithfulness, relevancy, context precision/recall) judged in-cluster, and benchmarking a faster model
+10. [Architecture Refactor: Three Scaling Strategies](10-architecture-refactor.md): Separating vLLM REST APIs from the 
+    job queue, latency-driven GPU scaling, fixed-capacity evaluation pool, and why it matters for both performance and 
+    reasoning about the system
 
 All code is in this repository: manifests in `k8s/`, cluster bootstrap in `scripts/cluster-up.sh`, the load generator
 in `scripts/stress.py`.

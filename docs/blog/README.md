@@ -1,15 +1,33 @@
-# Scaling on queue depth: KEDA, HPA and RabbitMQ in front of vLLM on one GPU
+# DocuFlow: Document Ingestion & RAG at Scale
+
+*A production system that reads scanned documents with a vision model, makes them searchable, and answers questions while handling ingest and queries simultaneously on a single GPU.*
+
+## Quick Start
+
+**New here?** Start with the condensed 3-part series:
+
+0. **[DocuFlow Explained](00-docuflow-explained.md)** – System overview with diagrams
+1. **[Why We Refactored](01-why-we-refactored.md)** – Queue-driven vs latency-driven scaling
+2. **[Operate & Monitor](02-operate-and-monitor.md)** – Deploy, monitor, troubleshoot
+
+## Full Series
+
+For detailed analysis, see the original 9-part field report below.
+
+---
+
+## Full Field Report: Scaling on Queue Depth
 
 *A field report from building docuflow, a document-ingestion and agentic-RAG system, and stress-testing it until each
 part of the autoscaling broke at least once.*
 
-## Summary
+### Summary
 
 docuflow reads scanned documents (printed and handwritten) with a vision model, indexes them in Postgres + pgvector,
 and answers questions with an agent loop, while ingestion keeps running. Everything runs on Kubernetes: one machine,
 one NVIDIA L40S (46 GB), a kind cluster, and three vLLM servers sharing that GPU.
 
-Almost everything scales on **queue depth**, through KEDA, which turns each signal into a Kubernetes HPA:
+The system initially scaled on **queue depth** through KEDA, which turns each signal into a Kubernetes HPA:
 
 | What scales | Signal | Scaler | Range |
 |---|---|---|---|

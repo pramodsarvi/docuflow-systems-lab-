@@ -1,239 +1,314 @@
-# Intelligent Routing: Gateway API + llm-d vs LiteLLM Proxy
+# Intelligent Routing: Layered Stack (LiteLLM + llm-d)
 
-**Quick clarification:**
-- **LiteLLM:** External proxy (like a firewall/gateway)
-- **llm-d:** Kubernetes-native pod management (built-in to K8s)
+**Architecture:** Two-layer gateway system
+- **Layer 1 (App):** LiteLLM handles keys, rate limits, cost tracking, logging
+- **Layer 2 (K8s):** llm-d handles pod routing based on queue depth & KV cache
+- **Result:** Smart routing + operational features in one system
 
-We should use **Gateway API + llm-d** for K8s-native intelligence.
-
----
-
-## Architecture Comparison
-
-### Option 1: LiteLLM Proxy (External Proxy)
-```mermaid
-graph TB
-    W["worker-vlm<br/>pods"]
-    GW["LiteLLM Proxy<br/>Deployment<br/>Port 8000<br/>routes requests<br/>external process"]
-    P1["model-vlm-0<br/>vLLM"]
-    P2["model-vlm-1<br/>vLLM"]
-    
-    W -->|HTTP| GW
-    GW -->|HTTP| P1 & P2
-    
-    style GW fill:#ff9800
-    note on diagram right of GW: "External proxy<br/>Has to query metrics<br/>2-5ms overhead<br/>Extra deployment"
-```
-
-**Pros:** Flexible, can run anywhere  
-**Cons:** Extra layer, polling overhead, separate deployment
+This combines the best of both worlds.
 
 ---
 
-### Option 2: Gateway API + llm-d (Kubernetes-Native) ✓
+## Combined Architecture: LiteLLM + llm-d
+
 ```mermaid
 graph TB
-    subgraph "Kubernetes Control Plane"
-        API["API Server<br/>knows about pods"]
-        GW["Gateway API<br/>HTTPRoute resource"]
-        LLMD["llm-d controller<br/>watches vLLM metrics<br/>routes intelligently"]
+    subgraph "Workers"
+        W1["worker-vlm-1"]
+        W2["worker-vlm-2"]
     end
     
-    W["worker-vlm<br/>pods"]
-    SVC["Service: model-vlm<br/>discovered by Gateway API"]
-    P1["model-vlm-0<br/>vLLM<br/>+metrics"]
-    P2["model-vlm-1<br/>vLLM<br/>+metrics"]
+    subgraph "Layer 1: Application Gateway (LiteLLM)"
+        LITE["LiteLLM Proxy<br/>:4000<br/>Rate limits<br/>Keys<br/>Cost tracking<br/>Logging"]
+    end
     
-    W -->|HTTP| GW
-    GW -->|"direct to pods<br/>via llm-d"| P1 & P2
+    subgraph "Layer 2: Kubernetes Gateway (llm-d)"
+        LLMD["llm-d Controller<br/>:8000<br/>Pod discovery<br/>Queue-aware routing<br/>Health checks"]
+    end
     
-    LLMD -->|watches| P1 & P2
-    LLMD -->|informs| GW
-    API -->|Pod events| LLMD
+    subgraph "Kubernetes"
+        SVC["Service: model-vlm<br/>discovered by Gateway API"]
+        P1["model-vlm-0<br/>vLLM + /metrics"]
+        P2["model-vlm-1<br/>vLLM + /metrics"]
+    end
     
+    W1 & W2 -->|request| LITE
+    LITE -->|"forwards<br/>no modifications"| LLMD
+    LLMD -->|"routes to<br/>best pod"| P1 & P2
+    
+    LLMD -->|"polls /metrics<br/>every 5s"| P1 & P2
+    
+    style LITE fill:#ff9800
     style LLMD fill:#4caf50
-    note on diagram right of LLMD: "Kubernetes-native<br/>Pod-aware<br/>No extra latency<br/>Integrated control"
 ```
 
-**Pros:** K8s-native, pod-aware, no extra network hops  
-**Cons:** Requires K8s 1.28+, llm-d controller
+### Why Both?
+
+**LiteLLM handles:**
+- ✓ API key validation and management
+- ✓ Rate limiting per key/user
+- ✓ Cost tracking and budgets
+- ✓ Request/response logging
+- ✓ Fallback model handling
+- ✓ Unified interface (workers don't see backend details)
+
+**llm-d handles:**
+- ✓ Pod discovery (automatic from K8s Services)
+- ✓ Health checking
+- ✓ Intelligent routing (least queue depth, most KV cache)
+- ✓ Load shedding (503 when full)
+- ✓ Integration with KEDA (pod scaling)
+
+**Together:**
+- Workers see one endpoint: `litellm-proxy:4000`
+- LiteLLM enforces policy (keys, limits)
+- llm-d ensures requests go to the best pod
+- No duplication, no conflicts
 
 ---
 
-## How llm-d Routes Intelligently
+## How Requests Flow
 
 ```mermaid
 sequenceDiagram
-    participant API as K8s API
-    participant LLMD as llm-d<br/>controller
-    participant GW as Gateway API<br/>HTTPRoute
-    participant M1 as vLLM-0<br/>queue=2
-    participant M2 as vLLM-1<br/>queue=8
+    participant W as worker-vlm
+    participant LITE as LiteLLM<br/>:4000
+    participant LLMD as llm-d<br/>:8000
+    participant P1 as vLLM-0<br/>queue=2
+    participant P2 as vLLM-1<br/>queue=8
 
+    W->>LITE: POST /v1/chat/completions<br/>with API key
+    LITE->>LITE: ✓ Validate key<br/>✓ Check rate limit<br/>✓ Log request
+    
+    LITE->>LLMD: POST /v1/chat/completions<br/>(transparent forward)
+    
     loop Every 5 seconds
-        LLMD->>M1: GET /metrics
-        M1-->>LLMD: queue_depth=2, kv_cache=40%
+        LLMD->>P1: GET /metrics
+        P1-->>LLMD: queue=2, cache=40%
         
-        LLMD->>M2: GET /metrics
-        M2-->>LLMD: queue_depth=8, kv_cache=85%
+        LLMD->>P2: GET /metrics
+        P2-->>LLMD: queue=8, cache=85%
     end
-
-    W->>GW: POST /v1/chat/completions
-    GW->>LLMD: Which pod should I route to?
-    LLMD->>LLMD: Score: M1=(2+0.4)=2.4, M2=(8+0.85)=8.85
-    LLMD-->>GW: Route to M1 (lowest score)
-    GW->>M1: Forward request
-    M1-->>W: Response
+    
+    LLMD->>LLMD: Route: score=queue+cache<br/>P1=2.4, P2=8.85<br/>→ use P1
+    
+    LLMD->>P1: Forward request
+    P1-->>LLMD: Response
+    
+    LITE->>LITE: Log response<br/>Track cost<br/>Record latency
+    
+    LITE-->>W: Response
 ```
 
 ---
 
-## Key Resources
+## Option Comparison
 
-### GatewayClass (controller selection)
+If you need ONLY routing → **llm-d Gateway API alone**  
+If you need ONLY keys/limits → **LiteLLM alone**  
+If you need BOTH → **LiteLLM + llm-d (recommended)**
+
+```
+╔════════════════════════╦════════════════╦════════════════╦═══════════════════╗
+║ Feature                ║ llm-d Only     ║ LiteLLM Only   ║ Both (Combined)   ║
+╠════════════════════════╬════════════════╬════════════════╬═══════════════════╣
+║ Routing awareness      ║ queue/cache    ║ round-robin    ║ queue/cache       ║
+║ API keys               ║ ❌             ║ ✓              ║ ✓                 ║
+║ Rate limiting          ║ ❌             ║ ✓              ║ ✓                 ║
+║ Cost tracking          ║ ❌             ║ ✓              ║ ✓                 ║
+║ Health checking        ║ ✓              ║ ❌             ║ ✓                 ║
+║ Pod awareness          ║ ✓              ║ ❌             ║ ✓                 ║
+║ Load shedding          ║ ✓              ║ ❌             ║ ✓                 ║
+║ Per-request overhead   ║ <1ms           ║ 2-5ms          ║ ~2-5ms            ║
+║ Setup complexity       ║ Medium         ║ Medium         ║ Medium            ║
+║ Best for               ║ Pure K8s       ║ Multi-cloud    ║ K8s + operations  ║
+╚════════════════════════╩════════════════╩════════════════╩═══════════════════╝
+```
+
+---
+
+## LiteLLM Configuration for Combined Stack
+
 ```yaml
+# LiteLLM receives requests from workers
+# LiteLLM routes to llm-d Gateway (not directly to pods)
+
+model_list:
+  - model_name: "extract"
+    litellm_params:
+      model: "openai/Qwen2.5-VL-3B"
+      api_base: "http://llm-d-gateway:8000/v1"  # ← Points to llm-d
+      api_key: "unused"
+
+rate_limit_models:
+  - model: "extract"
+    requests_per_second: 100
+
+cost_tracking:
+  enabled: true
+  database_url: "postgresql://litellm:pass@postgres:5432/litellm"
+
+logging:
+  type: "json"
+  database_url: "postgresql://litellm:pass@postgres:5432/litellm"
+```
+
+## llm-d Configuration for Combined Stack
+
+```yaml
+# llm-d receives requests from LiteLLM
+# llm-d routes to individual vLLM pods based on metrics
+
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: GatewayClass
 metadata:
   name: llm-d
 spec:
-  controllerName: "llm.ai/llm-d"  # Use llm-d, not Envoy or nginx
-```
+  controllerName: "llm.ai/llm-d"
 
-### HTTPRoute (path routing)
-```yaml
+---
 apiVersion: gateway.networking.k8s.io/v1beta1
-kind: HTTPRoute
+kind: Gateway
 metadata:
-  name: extract-route
+  name: llm-d-gateway
 spec:
-  parentRefs:
-  - name: llm-gateway
-  rules:
-  - backendRefs:
-    - name: model-vlm  # Service name
-      port: 8000
-      weight: 100      # llm-d distributes via weight
-```
+  gatewayClassName: llm-d
+  listeners:
+  - name: http
+    port: 8000
+    protocol: HTTP
 
-### LLMServicePolicy (the magic - llm-d specific)
-```yaml
+---
 apiVersion: llm.ai/v1alpha1
 kind: LLMServicePolicy
 metadata:
-  name: extract-policy
+  name: vllm-routing-policy
 spec:
   targetRef:
     kind: Service
     name: model-vlm
   
   routing:
-    strategy: "least_pending_requests"  # llm-d knows vLLM metrics
+    strategy: "least_pending_requests"
     metrics:
-      - type: "vllm_queue_depth"        # Query /metrics endpoint
+      - type: "vllm_queue_depth"
       - type: "vllm_kv_cache_utilization"
-      - type: "vllm_batch_utilization"
 ```
 
 ---
 
-## Comparison Table
+## Deployment: Step by Step
 
-```
-╔════════════════════════╦═══════════════════╦═══════════════════╗
-║ Feature                ║ LiteLLM Proxy     ║ llm-d Gateway API ║
-╠════════════════════════╬═══════════════════╬═══════════════════╣
-║ Type                   ║ External proxy    ║ K8s-native        ║
-║ Routing awareness      ║ vLLM metrics      ║ vLLM metrics      ║
-║ Network hops           ║ +1 (proxy layer)  ║ Direct            ║
-║ Per-request latency    ║ 2-5ms overhead    ║ <1ms overhead     ║
-║ Pod discovery          ║ Manual config     ║ Automatic via K8s ║
-║ Autoscaling aware      ║ Polling via API   ║ Pod events        ║
-║ Health checking        ║ Configurable      ║ Built-in          ║
-║ Load shedding (503)    ║ ✓                 ║ ✓                 ║
-║ Setup complexity       ║ Medium            ║ Medium            ║
-║ Extra deployment       ║ ✓ (LiteLLM pods) ║ ✗ (built-in)      ║
-║ Kubernetes version     ║ Any               ║ 1.28+             ║
-║ Best for               ║ Multi-cloud       ║ Pure K8s clusters ║
-╚════════════════════════╩═══════════════════╩═══════════════════╝
-```
-
----
-
-## Current State vs With llm-d
-
-### Current (K8s Service Round-Robin)
-```
-worker → Service model-vlm → [Pod-1 queue=15] [Pod-2 queue=20] [Pod-3 queue=2]
-                              Round-robin picks Pod-2 (BUSY!) ❌
-```
-
-### With llm-d
-```
-worker → Gateway API → llm-d controller → Pod-3 (queue=2) ✓
-                       (queries /metrics)
-```
-
----
-
-## When to Use What
-
-| Scenario | Use This |
-|----------|----------|
-| Single K8s cluster (GKE, EKS, AKS) | **llm-d Gateway API** |
-| Multi-cloud, hybrid setup | LiteLLM Proxy |
-| Need advanced features (keys, budgets, billing) | LiteLLM Proxy |
-| Simple intelligent routing | **llm-d Gateway API** |
-| K8s < 1.28 | LiteLLM Proxy |
-
----
-
-## Deployment
-
-### Install llm-d Controller
+### 1. Install LiteLLM
 ```bash
-# Add llm-d to your cluster (varies by distribution)
-# For reference implementations:
+# Deploy LiteLLM Proxy (2 replicas for HA)
+kubectl apply -f k8s/base/litellm-deployment.yaml
+
+# Verify
+kubectl get deploy litellm-proxy
+kubectl get svc litellm-proxy
+```
+
+### 2. Install llm-d Controller
+```bash
+# Install K8s Gateway API (if not present)
+kubectl apply -k github.com/kubernetes-sigs/gateway-api/config/crd
+
+# Install llm-d controller
 helm repo add llm-d https://charts.llm-d.io
-helm install llm-d llm-d/llm-d-controller
+helm install llm-d llm-d/llm-d-controller --namespace kube-system
 ```
 
-### Deploy Gateway API Resources
+### 3. Deploy Gateway Resources
 ```bash
-# Apply the Gateway API resources
-kubectl apply -f k8s/base/llm-gateway-correct.yaml
+# Deploy Gateway API resources + llm-d configuration
+kubectl apply -f k8s/base/llm-stack-combined.yaml
 
-# Verify gateway is ready
+# Verify everything is connected
 kubectl get gatewayclass
-kubectl get gateway llm-gateway
+kubectl get gateway llm-d-gateway
 kubectl get httproute
-
-# Check llm-d is routing
-kubectl logs -n llm-d deployment/llm-d-controller | grep routing
+kubectl get llmservicepolicy
 ```
 
-### Worker Config Change
+### 4. Update Workers
 ```python
 # OLD: Direct to vLLM
 response = httpx.post("http://model-vlm:8000/v1/chat/completions", ...)
 
-# NEW: Through Gateway API (llm-d routes)
-response = httpx.post("http://llm-gateway:8000/v1/chat/completions", ...)
+# NEW: Through LiteLLM (which routes through llm-d)
+response = httpx.post("http://litellm-proxy:4000/v1/chat/completions", ...)
 ```
+
+---
+
+## Monitoring the Stack
+
+### Check LiteLLM metrics
+```bash
+# View LiteLLM logs (keys, rate limits, cost)
+kubectl logs -f deployment/litellm-proxy
+
+# Query cost tracking (if using Postgres backend)
+psql -c "SELECT model, user_id, SUM(cost) FROM litellm_logs GROUP BY model, user_id"
+```
+
+### Check llm-d routing
+```bash
+# View llm-d controller logs
+kubectl logs -f deployment/llm-d-controller -n kube-system
+
+# Check which pods are being routed to
+kubectl get pods -l app=model-vlm
+kubectl exec -it model-vlm-0 -- curl http://localhost:8000/metrics | grep queue_depth
+```
+
+### End-to-end request flow
+```bash
+# 1. Send request through LiteLLM
+curl -X POST http://litellm-proxy:4000/v1/chat/completions \
+  -H "Authorization: Bearer key-123" \
+  -d '{"model": "extract", "messages": [...]}'
+
+# 2. Check LiteLLM logs for key validation + rate limit
+kubectl logs deployment/litellm-proxy | tail -20
+
+# 3. Check which pod llm-d routed to
+kubectl logs deployment/llm-d-controller -n kube-system | tail -20
+
+# 4. Verify response came from the right pod
+curl http://model-vlm-0:8000/v1/models
+```
+
+---
+
+## Troubleshooting
+
+| Problem | Check |
+|---------|-------|
+| "401 Unauthorized" | LiteLLM key validation. Check `kubectl logs litellm-proxy` |
+| "429 Too Many Requests" | Rate limit hit in LiteLLM. Check configured RPS limits |
+| "503 Service Unavailable" | llm-d couldn't find available pods. Check `kubectl get pods -l app=model-vlm` |
+| "High latency" | Check llm-d controller logs: `kubectl logs deployment/llm-d-controller -n kube-system` |
+| "Requests going to busy pod" | llm-d metrics scraping failed. Verify `/metrics` endpoint on vLLM pods |
 
 ---
 
 ## Files Provided
 
 ```
-k8s/base/llm-gateway-correct.yaml
-  ├─ GatewayClass: llm-d controller
-  ├─ Gateway: Listens on :8000
-  ├─ HTTPRoute: Routes to model-vlm & model-embed
-  ├─ LLMServicePolicy: Intelligent routing config
-  ├─ vLLMMonitor: Tells llm-d what to watch
-  ├─ BackendTrafficPolicy: Health checks & load balancing
-  └─ ServiceExport: Publish services to Gateway API
+k8s/base/llm-stack-combined.yaml
+  ├─ LiteLLM ConfigMap: rate limits, cost tracking, logging config
+  ├─ LiteLLM Deployment: 2 replicas, HA proxy
+  ├─ LiteLLM Service: :4000
+  ├─ GatewayClass: llm-d controller selection
+  ├─ Gateway: Listens on :8000, routes to vLLM services
+  ├─ HTTPRoute: Path-based routing rules
+  ├─ LLMServicePolicy: Queue-aware routing strategy
+  ├─ vLLMMonitor: Metrics scraping config
+  ├─ vLLM StatefulSet: With /metrics enabled
+  ├─ KEDA ScaledObject: GPU scaling on latency
+  └─ Secrets: Database credentials
 ```
 
 ---
@@ -241,24 +316,18 @@ k8s/base/llm-gateway-correct.yaml
 ## Summary
 
 ```
-Old thinking: "Need a proxy between workers and vLLM"
-New thinking: "Use K8s Gateway API with llm-d"
-
-Reason: llm-d is PURPOSE-BUILT for this:
-  - Understands vLLM metrics natively
-  - Integrated with Kubernetes pod lifecycle
-  - Direct routing (no extra network hop)
-  - Automatic pod discovery
-  - Works with KEDA (sees when pods scale)
+Layer 1 (LiteLLM):     Keys, rate limits, cost, logging
+            ↓
+Layer 2 (llm-d):       Pod discovery, health checks, intelligent routing
+            ↓
+Actual inference:      vLLM pods handle requests
 ```
 
-**Result:** Intelligent routing without external proxy overhead.
+**Result:**
+- ✓ Workers have unified endpoint (`litellm-proxy:4000`)
+- ✓ App-level policies enforced (keys, budgets, logging)
+- ✓ K8s-level intelligence (pod-aware routing, load shedding)
+- ✓ No duplication or conflicts
+- ✓ Latency: +2-5ms from LiteLLM + <1ms from llm-d = ~3-6ms overhead (acceptable)
 
----
-
-**Status:**
-- ✓ Current: K8s Service (simple)
-- 📦 Ready to deploy: llm-d Gateway API (smart)
-- 📦 Alternative: LiteLLM Proxy (flexible)
-
-Choose based on your cluster type and needs!
+This is the recommended production setup for DocuFlow on Kubernetes.
